@@ -5,7 +5,7 @@ FROM python:3.12-slim AS runtime
 # Prevent Python from writing .pyc files and enable unbuffered streaming
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8000
+    PORT=8080
 
 # Set working directory
 WORKDIR /app
@@ -21,17 +21,18 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application source code
 COPY --chown=appuser:appgroup app/ ./app/
+COPY --chown=appuser:appgroup scripts/ ./scripts/
 COPY --chown=appuser:appgroup pyproject.toml .
 
 # Switch to non-root user
 USER appuser
 
-# Expose standard application port
-EXPOSE 8000
+# Expose standard Cloud Run application port
+EXPOSE 8080
 
 # Health check without external dependencies (pure Python urllib)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')" || exit 1
+    CMD python -c "import os, urllib.request; port = os.environ.get('PORT', '8080'); urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz')" || exit 1
 
-# Launch ASGI server via uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Launch ASGI server via uvicorn listening on PORT environment variable, non-root user, no reload
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

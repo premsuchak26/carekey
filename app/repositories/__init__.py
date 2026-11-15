@@ -29,32 +29,38 @@ class RepositoryContainer:
         is_firestore = settings.repository_backend == "firestore"
 
         if is_firestore:
-            self.elders: RepositoryProtocol[Elder] = FirestoreRepository("elders", settings)
-            self.circles: RepositoryProtocol[CareCircle] = FirestoreRepository("circles", settings)
-            self.members: RepositoryProtocol[Member] = FirestoreRepository("members", settings)
+            self.elders: RepositoryProtocol[Elder] = FirestoreRepository(
+                "elders", settings, model_cls=Elder
+            )
+            self.circles: RepositoryProtocol[CareCircle] = FirestoreRepository(
+                "circles", settings, model_cls=CareCircle
+            )
+            self.members: RepositoryProtocol[Member] = FirestoreRepository(
+                "members", settings, model_cls=Member
+            )
             self.medications: RepositoryProtocol[Medication] = FirestoreRepository(
-                "medications", settings
+                "medications", settings, model_cls=Medication
             )
             self.schedules: RepositoryProtocol[DoseSchedule] = FirestoreRepository(
-                "schedules", settings
+                "schedules", settings, model_cls=DoseSchedule
             )
             self.dose_events: RepositoryProtocol[DoseEvent] = FirestoreRepository(
-                "dose_events", settings
+                "dose_events", settings, model_cls=DoseEvent
             )
             self.appointments: RepositoryProtocol[Appointment] = FirestoreRepository(
-                "appointments", settings
+                "appointments", settings, model_cls=Appointment
             )
             self.proposals: RepositoryProtocol[ChangeProposal] = FirestoreRepository(
-                "proposals", settings
+                "proposals", settings, model_cls=ChangeProposal
             )
             self.audit_log: RepositoryProtocol[AuditEntry] = FirestoreRepository(
-                "audit_entries", settings
+                "audit_entries", settings, model_cls=AuditEntry
             )
             self.reminders: RepositoryProtocol[ReminderSent] = FirestoreRepository(
-                "reminders", settings
+                "reminders", settings, model_cls=ReminderSent
             )
             self.used_tokens: RepositoryProtocol[UsedActionToken] = FirestoreRepository(
-                "used_tokens", settings
+                "used_tokens", settings, model_cls=UsedActionToken
             )
         else:
             self.elders = InMemoryRepository[Elder]()
@@ -107,14 +113,18 @@ def reset_repository_container() -> None:
 
 
 def get_repository[T](
-    collection_name: str, settings: Settings | None = None
+    collection_name: str,
+    settings: Settings | None = None,
+    model_cls: type[T] | None = None,
 ) -> RepositoryProtocol[T] | Any:
     """Instantiate a single configured repository backend lazily."""
     if settings is None:
         settings = get_settings()
 
     if settings.repository_backend == "firestore":
-        return FirestoreRepository[T](collection_name=collection_name, settings=settings)
+        return FirestoreRepository[T](
+            collection_name=collection_name, settings=settings, model_cls=model_cls
+        )
 
     return InMemoryRepository[T]()
 

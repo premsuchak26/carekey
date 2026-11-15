@@ -32,6 +32,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = get_settings()
 
+    if settings.environment == "production":
+        settings.check_production_secrets()
+
     application = FastAPI(
         title=settings.app_name,
         description=(

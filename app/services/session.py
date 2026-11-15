@@ -92,20 +92,32 @@ class SessionManager:
             member_name=member_name,
             max_age=max_age,
         )
+        is_secure = (
+            True if self.settings.environment == "production" else (not self.settings.debug)
+        )
         response.set_cookie(
             key=self.COOKIE_NAME,
             value=token,
             max_age=max_age,
             httponly=True,
             samesite="lax",
-            secure=not self.settings.debug,  # False for test/localhost dev
+            secure=is_secure,
             path="/",
         )
         return token
 
     def clear_session_cookie(self, response: Response) -> None:
         """Clear session cookie on logout."""
-        response.delete_cookie(key=self.COOKIE_NAME, path="/")
+        is_secure = (
+            True if self.settings.environment == "production" else (not self.settings.debug)
+        )
+        response.delete_cookie(
+            key=self.COOKIE_NAME,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=is_secure,
+        )
 
     def get_session(self, request: Request) -> dict[str, Any] | None:
         """Extract and validate session from request cookie."""

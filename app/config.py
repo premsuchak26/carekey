@@ -6,7 +6,7 @@ Reads settings from environment variables and optional .env file.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,9 +19,16 @@ class Settings(BaseSettings):
     )
     debug: bool = Field(default=False, description="Enable debug mode and verbose logging.")
     host: str = Field(default="0.0.0.0", description="Host interface to bind to.")
-    port: int = Field(default=8000, ge=1, le=65535, description="Port number to listen on.")
+    port: int = Field(
+        default=8080,
+        ge=1,
+        le=65535,
+        validation_alias=AliasChoices("PORT", "port"),
+        description="Port number to listen on.",
+    )
     secret_key: str = Field(
         default="change-this-in-production-to-a-secure-random-key",
+        validation_alias=AliasChoices("SECRET_KEY", "secret_key"),
         description="Application secret key used for session/token cryptographic operations.",
     )
 
@@ -40,6 +47,13 @@ class Settings(BaseSettings):
     )
     firestore_project_id: str | None = Field(
         default=None,
+        validation_alias=AliasChoices(
+            "FIRESTORE_PROJECT_ID",
+            "firestore_project_id",
+            "GOOGLE_CLOUD_PROJECT",
+            "GCP_PROJECT",
+            "GCLOUD_PROJECT",
+        ),
         description="Google Cloud Project ID for Firestore if using firestore backend.",
     )
 
@@ -91,6 +105,38 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    def check_production_secrets(self) -> None:
+        """Refuse startup in production mode if required security secrets are missing."""
+        if self.environment == "production":
+            insecure_secret_keys = {
+                "",
+                "change-this-in-production-to-a-secure-random-key",
+                "secret",
+                "changeme",
+            }
+            if not self.secret_key or self.secret_key.strip() in insecure_secret_keys:
+                raise ValueError(
+                    "Production startup failure: SECRET_KEY environment variable is required "
+                    "and cannot use default or insecure value in production mode."
+                )
+            insecure_tick_secrets = {
+                "",
+                "carekey-internal-tick-secret",
+                "secret",
+                "changeme",
+            }
+            if not self.tick_secret or self.tick_secret.strip() in insecure_tick_secrets:
+                raise ValueError(
+                    "Production startup failure: TICK_SECRET environment variable is required "
+                    "and cannot use default or insecure value in production mode."
+                )
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Run production secret checks on initialization."""
+        self.check_production_secrets()
+        return self
 
     @property
     def repository_type(self) -> Literal["memory", "firestore"]:
