@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Create Care Circle - CareKey{% endblock %}
+
+{% block content %}
+<section class="form-section">
+    <h1>Create an Elder Care Circle</h1>
+    <p class="lead-text">
+        Start a private, secure care circle. As the elder or primary coordinator, you will receive an exclusive Owner Passcode.
+    </p>
+
+    <div class="card" style="max-width: 650px;">
+        <form action="/circle/create" method="post">
+            <div class="form-group">
+                <label for="elder_name">Elder's Full Name (or What You Like to Be Called):</label>
+                <input type="text" id="elder_name" name="elder_name" required placeholder="e.g. Margaret Smith" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+                <label for="circle_name">Care Circle Name (Optional):</label>
+                <input type="text" id="circle_name" name="circle_name" placeholder="e.g. Margaret's Health Team">
+                <p class="form-hint">Defaults to "[Elder's Name]'s Care Circle".</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.4rem; padding: 1rem;">
+                Create Circle & Get Passcode
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock content %}

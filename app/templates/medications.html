@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Medications & Schedules - CareKey{% endblock %}
+
+{% block content %}
+<section class="medications-section">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem;">
+        <div>
+            <h1>Medications & Dosing Schedules</h1>
+            <p class="lead-text">
+                Circle: <strong>{{ ctx.circle.name }}</strong> &bull; Role: <strong>{{ ctx.member.role.value }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Add Medication Form (Elder & MANAGER only) -->
+    {% if ctx.member.role.level >= 3 %}
+        <div class="card" style="margin-bottom: 2.5rem; max-width: 800px;">
+            <h2>Add New Medication</h2>
+            <form action="/medications/add" method="post">
+                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+                <div class="form-group">
+                    <label for="name">Medication Name:</label>
+                    <input type="text" id="name" name="name" required placeholder="e.g. Lisinopril or Metformin">
+                </div>
+
+                <div class="form-group">
+                    <label for="dosage">Dosage / Strength:</label>
+                    <input type="text" id="dosage" name="dosage" required placeholder="e.g. 10mg or 500mg">
+                </div>
+
+                <div class="form-group">
+                    <label for="instructions">Instructions / Notes:</label>
+                    <input type="text" id="instructions" name="instructions" placeholder="e.g. Take with morning breakfast and water">
+                </div>
+
+                <div class="form-group">
+                    <label for="prescribing_doctor">Prescribing Doctor:</label>
+                    <input type="text" id="prescribing_doctor" name="prescribing_doctor" placeholder="e.g. Dr. Patel (Cardiology)">
+                </div>
+
+                <div class="form-group">
+                    <label for="times_of_day">Daily Administration Times (Comma-separated HH:MM):</label>
+                    <input type="text" id="times_of_day" name="times_of_day" value="08:00, 20:00" required>
+                    <p class="form-hint">24-hour format: e.g. "08:00" for 8 AM, "20:00" for 8 PM</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="dose_amount">Dose Amount:</label>
+                    <input type="text" id="dose_amount" name="dose_amount" value="1 tablet" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="font-size: 1.3rem;">
+                    Save Medication & Schedule
+                </button>
+            </form>
+        </div>
+    {% endif %}
+
+    <!-- List Existing Medications -->
+    <h2>Current Medications ({{ medications | length }})</h2>
+    {% if not medications %}
+        <div class="card">
+            <p>No medications recorded yet in this circle.</p>
+        </div>
+    {% else %}
+        <div class="card-grid">
+            {% for med in medications %}
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h3 style="font-size: 1.8rem; color: #0f172a;">{{ med.name }}</h3>
+                            <p style="font-size: 1.3rem; font-weight: 700; color: #1d4ed8;">{{ med.dosage }}</p>
+                        </div>
+                    </div>
+
+                    {% if med.schedule %}
+                        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
+                            <p><strong>Scheduled Times:</strong> {{ med.schedule.times_of_day | join(', ') }}</p>
+                            <p><strong>Amount:</strong> {{ med.schedule.dose_amount }}</p>
+                        </div>
+                    {% endif %}
+
+                    {% if med.instructions %}
+                        <p style="margin-top: 0.5rem; font-style: italic;">{{ med.instructions }}</p>
+                    {% endif %}
+                    {% if med.prescribing_doctor %}
+                        <p style="margin-top: 0.25rem; font-size: 1rem; color: #475569;">Doctor: {{ med.prescribing_doctor }}</p>
+                    {% endif %}
+
+                    {% if ctx.member.role.level >= 2 %}
+                        <!-- Helper, Manager, Elder Dose Quick-Log -->
+                        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--color-border);">
+                            <form action="/medications/log-dose" method="post" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <input type="hidden" name="medication_id" value="{{ med.id }}">
+                                <button type="submit" name="status" value="taken" class="btn" style="background: #15803d; color: #fff; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                                    Log Dose (Taken)
+                                </button>
+                                <button type="submit" name="status" value="skipped" class="btn" style="background: #64748b; color: #fff; padding: 0.5rem 1rem; font-size: 1.1rem;">
+                                    Skip Dose
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+
+                    {% if ctx.member.role.level >= 3 %}
+                        <div style="margin-top: 1rem;">
+                            <form action="/medications/delete" method="post" onsubmit="return confirm('Delete medication {{ med.name }}?');">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <input type="hidden" name="medication_id" value="{{ med.id }}">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 1rem;">
+                                    Delete Medication
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endblock content %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Care Circle Keys - CareKey{% endblock %}
+
+{% block content %}
+<section class="keys-section">
+    <h1>Member Key Management</h1>
+    <p class="lead-text">
+        Issue time-limited, role-scoped access keys for family members and caretakers. You can revoke access at any time with a single click.
+    </p>
+
+    {% if new_passcode and new_member %}
+        <div class="secret-notice-box" role="region" aria-label="Newly Issued Key">
+            <h2 style="color: #92400e;">⚠️ Newly Issued Access Key for {{ new_member.name }}</h2>
+            <p style="font-size: 1.25rem; font-weight: 700; color: #78350f;">
+                This 12-character passcode is shown <strong>ONLY ONCE</strong>. Share it privately with {{ new_member.name }} along with Circle Code <strong>{{ ctx.circle.circle_code }}</strong>.
+            </p>
+            <div class="secret-key-display">{{ new_passcode }}</div>
+            <p style="font-size: 1.15rem; color: #78350f;">Role: <strong>{{ new_member.role.value }}</strong> &bull; Expires: {{ new_member.expires_at.strftime('%Y-%m-%d') if new_member.expires_at else 'Never' }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Issue New Key Form -->
+    <div class="card" style="margin-bottom: 2.5rem; max-width: 750px;">
+        <h2>Issue New Member Key</h2>
+        <form action="/keys/issue" method="post">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+            <div class="form-group">
+                <label for="member_name">Member's Name:</label>
+                <input type="text" id="member_name" name="name" required placeholder="e.g. John (Caretaker) or Sarah (Daughter)">
+            </div>
+
+            <div class="form-group">
+                <label for="role">Assigned Role:</label>
+                <select id="role" name="role" required>
+                    <option value="HELPER" selected>HELPER (Can log doses and notes)</option>
+                    <option value="MANAGER">MANAGER (Can add/edit medications & appointments)</option>
+                    <option value="VIEWER">VIEWER (Read-only view of schedule and adherence)</option>
+                </select>
+                <p class="form-hint">Elders retain primary circle ownership and authorization keys.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="validity_days">Key Expiry (Days):</label>
+                <input type="number" id="validity_days" name="validity_days" value="30" min="1" max="365" required>
+                <p class="form-hint">Default is 30 days. Keys automatically expire after this period.</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="font-size: 1.3rem;">
+                Issue Key & Generate Passcode
+            </button>
+        </form>
+    </div>
+
+    <!-- Existing Members Table -->
+    <h2>Active & Revoked Circle Keys</h2>
+    <div style="overflow-x: auto;">
+        <table class="accessible-table" aria-label="List of Circle Members and Keys">
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Expires On</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                    <tr>
+                        <th scope="row"><strong>{{ member.name }}</strong></th>
+                        <td>{{ member.role.value }}</td>
+                        <td>
+                            {% if member.revoked_at %}
+                                <span style="color: #b91c1c; font-weight: 700;">Revoked</span>
+                            {% elif member.expires_at and now > member.expires_at %}
+                                <span style="color: #d97706; font-weight: 700;">Expired</span>
+                            {% else %}
+                                <span style="color: #15803d; font-weight: 700;">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ member.expires_at.strftime('%b %d, %Y') if member.expires_at else 'Permanent (Owner)' }}
+                        </td>
+                        <td>
+                            {% if member.role.value != "ELDER" and not member.revoked_at %}
+                                <form action="/keys/revoke" method="post" onsubmit="return confirm('Revoke access key for {{ member.name }} immediately?');">
+                                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                    <input type="hidden" name="member_id" value="{{ member.id }}">
+                                    <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 1.05rem;">
+                                        Revoke Key
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span style="color: #64748b;">N/A</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock content %}

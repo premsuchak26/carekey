@@ -15,6 +15,7 @@ os.environ.pop("FIRESTORE_PROJECT_ID", None)
 
 from app.config import Settings, get_settings
 from app.main import create_app
+from app.repositories import RepositoryContainer, get_repository_container
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +53,19 @@ def test_settings() -> Settings:
         repository_backend="memory",
         secret_key="test-secret-key-not-for-production",
     )
+
+
+@pytest.fixture(autouse=True)
+def clear_repositories(test_settings: Settings) -> None:
+    """Reset repository container storage before each test."""
+    container = get_repository_container(settings=test_settings)
+    container.clear()
+
+
+@pytest.fixture
+def test_repos(test_settings: Settings) -> RepositoryContainer:
+    """Provide repository container for direct unit testing."""
+    return get_repository_container(settings=test_settings)
 
 
 @pytest.fixture

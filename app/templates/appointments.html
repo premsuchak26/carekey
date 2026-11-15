@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Healthcare Appointments - CareKey{% endblock %}
+
+{% block content %}
+<section class="appointments-section">
+    <h1>Healthcare Appointments</h1>
+    <p class="lead-text">
+        Keep track of upcoming visits, doctor consultations, and medical checkups for <strong>{{ ctx.circle.name }}</strong>.
+    </p>
+
+    <!-- Schedule Appointment Form (Elder & MANAGER) -->
+    {% if ctx.member.role.level >= 3 %}
+        <div class="card" style="margin-bottom: 2.5rem; max-width: 800px;">
+            <h2>Schedule New Appointment</h2>
+            <form action="/appointments/add" method="post">
+                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+                <div class="form-group">
+                    <label for="doctor">Doctor or Specialist Name:</label>
+                    <input type="text" id="doctor" name="doctor" required placeholder="e.g. Dr. Martinez (Ophthalmology)">
+                </div>
+
+                <div class="form-group">
+                    <label for="place">Location / Clinic / Hospital:</label>
+                    <input type="text" id="place" name="place" required placeholder="e.g. Memorial Health Clinic, Suite 300">
+                </div>
+
+                <div class="form-group">
+                    <label for="datetime">Date & Time:</label>
+                    <input type="datetime-local" id="datetime" name="datetime" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes / Purpose of Visit:</label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="e.g. Annual cataract exam, bring eye drops"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="font-size: 1.3rem;">
+                    Save Appointment
+                </button>
+            </form>
+        </div>
+    {% endif %}
+
+    <!-- Appointments Listing -->
+    <h2>Scheduled Appointments ({{ appointments | length }})</h2>
+    {% if not appointments %}
+        <div class="card">
+            <p>No upcoming appointments found.</p>
+        </div>
+    {% else %}
+        <div class="card-grid">
+            {% for appt in appointments %}
+                <div class="card">
+                    <h3 style="font-size: 1.6rem; color: #0f172a;">Dr. {{ appt.doctor }}</h3>
+                    <p style="font-size: 1.25rem; font-weight: 700; color: #1d4ed8; margin-top: 0.25rem;">
+                        📅 {{ appt.datetime.strftime('%A, %B %d, %Y at %I:%M %p') }}
+                    </p>
+                    <p style="margin-top: 0.5rem;"><strong>Location:</strong> {{ appt.place }}</p>
+
+                    {% if appt.notes %}
+                        <p style="margin-top: 0.5rem; font-style: italic; color: #334155;">{{ appt.notes }}</p>
+                    {% endif %}
+
+                    {% if ctx.member.role.level >= 3 %}
+                        <div style="margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
+                            <form action="/appointments/delete" method="post" onsubmit="return confirm('Cancel appointment with Dr. {{ appt.doctor }}?');">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <input type="hidden" name="appointment_id" value="{{ appt.id }}">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 1rem;">
+                                    Delete Appointment
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endblock content %}

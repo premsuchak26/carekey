@@ -6,7 +6,6 @@
     <meta name="description" content="CareKey - Secure, accessible elderly care and medication management with two-key rule authorization.">
     <title>{% block title %}CareKey - Elderly Care & Medication Management{% endblock %}</title>
 
-    <!-- Preload / Stylesheets -->
     <link rel="stylesheet" href="/static/css/main.css">
     {% block extra_head %}{% endblock %}
 </head>
@@ -14,9 +13,11 @@
     <!-- Accessibility: Skip to Main Content Link -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <!-- ARIA Live Regions for Dynamic Assistive Tech Announcements -->
-    <div id="aria-live-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <div id="aria-live-assertive" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+    <!-- ARIA Live Regions for Assistive Technology Announcements -->
+    <div id="aria-live-polite" role="status" aria-live="polite" aria-atomic="true" class="sr-only">
+        {% block live_region %}{% endblock %}
+    </div>
+    <div id="aria-live-assertive" role="alert" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
 
     <header class="site-header" role="banner">
         <div class="header-container">
@@ -29,8 +30,24 @@
             </div>
             <nav class="site-nav" aria-label="Primary Navigation">
                 <ul class="nav-list" role="list">
-                    <li><a href="/" class="nav-link" {% if request and request.url.path == '/' %}aria-current="page"{% endif %}>Home</a></li>
-                    <li><a href="/healthz" class="nav-link" {% if request and request.url.path == '/healthz' %}aria-current="page"{% endif %}>Health</a></li>
+                    {% if ctx %}
+                        <li><a href="/today" class="nav-link" {% if request and request.url.path == '/today' %}aria-current="page"{% endif %}>Today's Doses</a></li>
+                        <li><a href="/dashboard" class="nav-link" {% if request and request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Dashboard</a></li>
+                        <li><a href="/medications" class="nav-link" {% if request and request.url.path == '/medications' %}aria-current="page"{% endif %}>Medications</a></li>
+                        <li><a href="/appointments" class="nav-link" {% if request and request.url.path == '/appointments' %}aria-current="page"{% endif %}>Appointments</a></li>
+                        {% if ctx.member.role.value == "ELDER" %}
+                            <li><a href="/keys" class="nav-link" {% if request and request.url.path == '/keys' %}aria-current="page"{% endif %}>Manage Keys</a></li>
+                        {% endif %}
+                        <li>
+                            <form action="/logout" method="post" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <button type="submit" class="nav-button logout-button">Log Out ({{ ctx.member.name }})</button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li><a href="/circle/create" class="nav-link" {% if request and request.url.path == '/circle/create' %}aria-current="page"{% endif %}>Create Circle</a></li>
+                        <li><a href="/login" class="nav-link" {% if request and request.url.path == '/login' %}aria-current="page"{% endif %}>Log In</a></li>
+                    {% endif %}
                 </ul>
             </nav>
         </div>
@@ -38,55 +55,35 @@
 
     <!-- Flash Notifications / Alert Messages -->
     <section class="messages-container" aria-label="System Notifications">
-        {% block messages %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.category | default('info') }}" role="alert">
-                    <span>{{ message.text }}</span>
-                </div>
-            {% endfor %}
+        {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <span>{{ error }}</span>
+            </div>
         {% endif %}
-        {% endblock messages %}
+        {% if success %}
+            <div class="alert alert-success" role="status">
+                <span>{{ success }}</span>
+            </div>
+        {% endif %}
+        {% block messages %}{% endblock messages %}
     </section>
 
     <!-- Main Content Landmark -->
     <main id="main-content" class="main-content" role="main" tabindex="-1">
         <div class="content-container">
-            {% block content %}
-            <section class="welcome-section">
-                <h1>Welcome to CareKey</h1>
-                <p class="lead-text">
-                    An elderly care and medication platform where the elder always holds the key.
-                </p>
-                <div class="card-grid">
-                    <div class="card">
-                        <h2>Two-Key Authorization</h2>
-                        <p>Medication adjustments require explicit confirmation from the care circle owner.</p>
-                    </div>
-                    <div class="card">
-                        <h2>Scoped & Revocable Keys</h2>
-                        <p>Family members and caretakers access care details with expiring passcodes.</p>
-                    </div>
-                    <div class="card">
-                        <h2>Tamper-Evident Audit Chain</h2>
-                        <p>Every schedule, administration, and change is permanently timestamped and verifiable.</p>
-                    </div>
-                </div>
-            </section>
-            {% endblock content %}
+            {% block content %}{% endblock content %}
         </div>
     </main>
 
     <footer class="site-footer" role="contentinfo">
         <div class="footer-container">
-            <p>&copy; 2026 CareKey. Built with care, accessibility, and dignity for elders.</p>
+            <p>&copy; 2026 CareKey. Dignity, privacy, and safety for elders.</p>
             <p class="accessibility-note">
-                High contrast, screen reader ready, and keyboard navigable (WCAG 2.1 AA compliant).
+                High contrast, screen reader ready, minimum 20px typography (WCAG 2.1 AA+).
             </p>
         </div>
     </footer>
 
-    <!-- Client-side vanilla scripts -->
     <script src="/static/js/main.js" defer></script>
     {% block scripts %}{% endblock %}
 </body>

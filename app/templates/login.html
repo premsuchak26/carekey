@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Log In - CareKey{% endblock %}
+
+{% block live_region %}
+{% if error %}
+    Error: {{ error }}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<section class="login-section">
+    <h1>Log In to Your Care Circle</h1>
+    <p class="lead-text">
+        Enter your Circle Code and your assigned personal passcode to access your care dashboard.
+    </p>
+
+    <div class="card" style="max-width: 600px;">
+        <form action="/login" method="post">
+            <div class="form-group">
+                <label for="circle_code">Circle Code:</label>
+                <input type="text" id="circle_code" name="circle_code" required
+                       value="{{ circle_code | default('') }}"
+                       placeholder="e.g. CARE-9A8B"
+                       autocomplete="off"
+                       style="text-transform: uppercase;">
+                <p class="form-hint">Format: CARE-XXXX (from your circle invitation or creation screen)</p>
+            </div>
+
+            <div class="form-group">
+                <label for="passcode">Personal Passcode:</label>
+                <input type="password" id="passcode" name="passcode" required
+                       placeholder="12-character passcode"
+                       autocomplete="current-password">
+                <p class="form-hint">Your private 12-character passcode.</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.4rem; padding: 1rem; margin-top: 1rem;">
+                Sign In to CareKey
+            </button>
+        </form>
+
+        <div style="margin-top: 2rem; border-top: 2px solid var(--color-border); padding-top: 1.5rem; text-align: center;">
+            <p style="font-size: 1.15rem;">Need to start a new circle?</p>
+            <a href="/circle/create" style="font-weight: 700; color: var(--color-primary); font-size: 1.25rem;">Create a Care Circle</a>
+        </div>
+    </div>
+</section>
+{% endblock content %}

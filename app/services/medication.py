@@ -1,0 +1,307 @@
+"""Medication management, scheduling, dose logging, and adherence calculation."""
+
+from datetime import date, datetime, time
+from typing import Any, Literal
+from uuid import uuid4
+
+from app.models import AdherenceSummary, DoseEvent, DoseSchedule, Medication
+from app.repositories import RepositoryContainer
+
+
+class MedicationService:
+    """Handles medication CRUD, schedule generation, dose logging, and adherence."""
+
+    LATE_THRESHOLD_SECONDS = 30 * 60  # 30 minutes
+    MISSED_THRESHOLD_SECONDS = 2 * 3600  # 2 hours
+
+    def __init__(self, repositories: RepositoryContainer) -> None:
+        self.repos = repositories
+
+    @classmethod
+    def calculate_dose_status(
+        cls,
+        scheduled_time: datetime,
+        timestamp: datetime,
+        status: Literal["taken", "skipped"],
+    ) -> Literal["on_time", "late", "missed", "skipped"]:
+        """Compute status based on scheduled vs actual administration time."""
+        if status == "skipped":
+            return "skipped"
+
+        diff_seconds = (timestamp - scheduled_time).total_seconds()
+        # If taken early or within 30 minutes after scheduled time
+        if diff_seconds <= cls.LATE_THRESHOLD_SECONDS:
+            return "on_time"
+        # Over 30 minutes but within 2 hours
+        if diff_seconds <= cls.MISSED_THRESHOLD_SECONDS:
+            return "late"
+        # Over 2 hours late
+        return "missed"
+
+    async def add_medication(
+        self,
+        circle_id: str,
+        name: str,
+        dosage: str,
+        instructions: str = "",
+        prescribing_doctor: str = "",
+        times_of_day: list[str] | None = None,
+        days_of_week: list[int] | None = None,
+        dose_amount: str = "1 tablet",
+    ) -> Medication:
+        """Add new medication and associated dosing schedule."""
+        med_id = str(uuid4())
+        times = times_of_day or ["08:00"]
+        days = days_of_week if days_of_week is not None else [0, 1, 2, 3, 4, 5, 6]
+
+        schedule = DoseSchedule(
+            medication_id=med_id,
+            times_of_day=times,
+            days_of_week=days,
+            dose_amount=dose_amount,
+            max_doses_per_day=len(times),
+        )
+        await self.repos.schedules.save(schedule.id, schedule)
+
+        medication = Medication(
+            id=med_id,
+            circle_id=circle_id,
+            name=name,
+            dosage=dosage,
+            instructions=instructions,
+            prescribing_doctor=prescribing_doctor,
+            schedule=schedule,
+        )
+        await self.repos.medications.save(medication.id, medication)
+        return medication
+
+    async def update_medication(
+        self,
+        circle_id: str,
+        medication_id: str,
+        name: str,
+        dosage: str,
+        instructions: str = "",
+        prescribing_doctor: str = "",
+        times_of_day: list[str] | None = None,
+        days_of_week: list[int] | None = None,
+        dose_amount: str = "1 tablet",
+    ) -> Medication | None:
+        """Update existing medication and its schedule."""
+        med = await self.repos.medications.get(medication_id)
+        if not med or med.circle_id != circle_id:
+            return None
+
+        med.name = name
+        med.dosage = dosage
+        med.instructions = instructions
+        med.prescribing_doctor = prescribing_doctor
+
+        # Update or create schedule
+        times = times_of_day or ["08:00"]
+        days = days_of_week if days_of_week is not None else [0, 1, 2, 3, 4, 5, 6]
+
+        if med.schedule:
+            med.schedule.times_of_day = times
+            med.schedule.days_of_week = days
+            med.schedule.dose_amount = dose_amount
+            med.schedule.max_doses_per_day = len(times)
+            await self.repos.schedules.save(med.schedule.id, med.schedule)
+        else:
+            schedule = DoseSchedule(
+                medication_id=med.id,
+                times_of_day=times,
+                days_of_week=days,
+                dose_amount=dose_amount,
+                max_doses_per_day=len(times),
+            )
+            med.schedule = schedule
+            await self.repos.schedules.save(schedule.id, schedule)
+
+        await self.repos.medications.save(med.id, med)
+        return med
+
+    async def delete_medication(self, circle_id: str, medication_id: str) -> bool:
+        """Delete medication and clean up associated schedules and events."""
+        med = await self.repos.medications.get(medication_id)
+        if not med or med.circle_id != circle_id:
+            return False
+
+        if med.schedule:
+            await self.repos.schedules.delete(med.schedule.id)
+        await self.repos.medications.delete(medication_id)
+        return True
+
+    async def list_medications(self, circle_id: str) -> list[Medication]:
+        """List all medications for a specific circle."""
+        return await self.repos.medications.find(lambda m: m.circle_id == circle_id)
+
+    async def log_dose(
+        self,
+        circle_id: str,
+        medication_id: str,
+        scheduled_time: datetime,
+        status: Literal["taken", "skipped"],
+        logged_by: str = "",
+        notes: str = "",
+        timestamp: datetime | None = None,
+    ) -> DoseEvent:
+        """Log a dose administration event with computed punctuality status."""
+        med = await self.repos.medications.get(medication_id)
+        if not med or med.circle_id != circle_id:
+            raise ValueError("Medication does not exist in this care circle.")
+
+        log_time = timestamp or datetime.now()
+        dose_status = self.calculate_dose_status(
+            scheduled_time=scheduled_time,
+            timestamp=log_time,
+            status=status,
+        )
+
+        event = DoseEvent(
+            circle_id=circle_id,
+            medication_id=medication_id,
+            scheduled_time=scheduled_time,
+            status=status,
+            dose_status=dose_status,
+            timestamp=log_time,
+            logged_by=logged_by,
+            notes=notes,
+        )
+        await self.repos.dose_events.save(event.id, event)
+        return event
+
+    async def get_today_doses(
+        self, circle_id: str, target_date: date | None = None
+    ) -> list[dict[str, Any]]:
+        """Retrieve scheduled doses for today with current administration status."""
+        today = target_date or datetime.now().date()
+        weekday = today.weekday()  # 0=Monday
+
+        medications = await self.list_medications(circle_id)
+        events = await self.repos.dose_events.find(
+            lambda e: e.circle_id == circle_id and e.scheduled_time.date() == today
+        )
+
+        # Index logged events by medication_id and scheduled HH:MM
+        logged_map: dict[str, DoseEvent] = {}
+        for event in events:
+            time_key = event.scheduled_time.strftime("%H:%M")
+            key = f"{event.medication_id}:{time_key}"
+            logged_map[key] = event
+
+        doses: list[dict[str, Any]] = []
+        now = datetime.now()
+
+        for med in medications:
+            if not med.schedule:
+                continue
+            if weekday not in med.schedule.days_of_week:
+                continue
+            if med.schedule.start_date > today:
+                continue
+            if med.schedule.end_date and med.schedule.end_date < today:
+                continue
+
+            for t_str in med.schedule.times_of_day:
+                try:
+                    hour, minute = map(int, t_str.split(":"))
+                    sched_dt = datetime.combine(today, time(hour, minute))
+                except Exception:
+                    continue
+
+                event_key = f"{med.id}:{t_str}"
+                logged_event = logged_map.get(event_key)
+
+                status: str
+                display_status: str
+                if logged_event:
+                    status = logged_event.status
+                    display_status = logged_event.dose_status
+                    logged = True
+                else:
+                    logged = False
+                    status = "pending"
+                    diff = (now - sched_dt).total_seconds()
+                    if diff > self.MISSED_THRESHOLD_SECONDS:
+                        display_status = "missed"
+                    elif diff > self.LATE_THRESHOLD_SECONDS:
+                        display_status = "late"
+                    else:
+                        display_status = "upcoming"
+
+                doses.append(
+                    {
+                        "medication_id": med.id,
+                        "medication_name": med.name,
+                        "dosage": med.dosage,
+                        "instructions": med.instructions,
+                        "dose_amount": med.schedule.dose_amount,
+                        "time_str": t_str,
+                        "scheduled_time": sched_dt,
+                        "logged": logged,
+                        "status": status,
+                        "display_status": display_status,
+                        "event": logged_event,
+                    }
+                )
+
+        doses.sort(key=lambda d: str(d["scheduled_time"]))
+        return doses
+
+    async def get_adherence_summary(self, circle_id: str) -> list[AdherenceSummary]:
+        """Compute adherence statistics and compliance streak per medication."""
+        medications = await self.list_medications(circle_id)
+        events = await self.repos.dose_events.find(lambda e: e.circle_id == circle_id)
+
+        summaries: list[AdherenceSummary] = []
+        for med in medications:
+            med_events = [e for e in events if e.medication_id == med.id]
+            total = len(med_events)
+            taken = sum(1 for e in med_events if e.status == "taken")
+            on_time = sum(1 for e in med_events if e.dose_status == "on_time")
+            late = sum(1 for e in med_events if e.dose_status == "late")
+            missed = sum(1 for e in med_events if e.dose_status == "missed")
+            skipped = sum(1 for e in med_events if e.status == "skipped")
+
+            pct = (taken / total * 100.0) if total > 0 else 100.0
+
+            # Compute streak (consecutive doses taken without missed/skipped)
+            sorted_events = sorted(med_events, key=lambda e: e.scheduled_time, reverse=True)
+            streak = 0
+            for ev in sorted_events:
+                if ev.status == "taken":
+                    streak += 1
+                else:
+                    break
+
+            summaries.append(
+                AdherenceSummary(
+                    medication_id=med.id,
+                    medication_name=med.name,
+                    total_doses=total,
+                    taken_doses=taken,
+                    on_time_doses=on_time,
+                    late_doses=late,
+                    missed_doses=missed,
+                    skipped_doses=skipped,
+                    adherence_percentage=round(pct, 1),
+                    streak_days=streak,
+                )
+            )
+
+        return summaries
+
+    async def get_overall_streak(self, circle_id: str) -> int:
+        """Compute overall circle-wide consecutive taken doses streak."""
+        events = await self.repos.dose_events.find(lambda e: e.circle_id == circle_id)
+        if not events:
+            return 0
+        sorted_events = sorted(events, key=lambda e: e.scheduled_time, reverse=True)
+        streak = 0
+        for ev in sorted_events:
+            if ev.status == "taken":
+                streak += 1
+            else:
+                break
+        return streak

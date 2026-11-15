@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Caretaker Dashboard - CareKey{% endblock %}
+
+{% block content %}
+<section class="dashboard-section">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem;">
+        <div>
+            <h1>Care Circle Dashboard</h1>
+            <p class="lead-text">
+                Overview for <strong>{{ ctx.circle.name }}</strong> &bull; Logged in as: <strong>{{ ctx.member.name }}</strong> ({{ ctx.member.role.value }})
+            </p>
+        </div>
+        <div>
+            <span style="font-size: 1.3rem; font-weight: 800; background: #fef3c7; border: 2px solid #d97706; color: #92400e; padding: 0.5rem 1rem; border-radius: 8px;">
+                🔥 {{ overall_streak }} Dose Streak!
+            </span>
+        </div>
+    </div>
+
+    <!-- Quick stats overview -->
+    <div class="card-grid" style="margin-bottom: 2.5rem;">
+        <div class="card">
+            <h2>Today's Progress</h2>
+            <p style="font-size: 2rem; font-weight: 800; color: #1d4ed8; margin-top: 0.5rem;">
+                {{ taken_today }} / {{ total_today }} Doses Taken
+            </p>
+            <p style="margin-top: 0.5rem;"><a href="/today" style="font-weight: 700; color: var(--color-primary);">Open Elder Today View &rarr;</a></p>
+        </div>
+
+        <div class="card">
+            <h2>Active Medications</h2>
+            <p style="font-size: 2rem; font-weight: 800; color: #15803d; margin-top: 0.5rem;">
+                {{ medications | length }} Monitored
+            </p>
+            <p style="margin-top: 0.5rem;"><a href="/medications" style="font-weight: 700; color: var(--color-primary);">Manage Medications &rarr;</a></p>
+        </div>
+
+        <div class="card">
+            <h2>Upcoming Appointments</h2>
+            <p style="font-size: 2rem; font-weight: 800; color: #7c3aed; margin-top: 0.5rem;">
+                {{ appointments | length }} Scheduled
+            </p>
+            <p style="margin-top: 0.5rem;"><a href="/appointments" style="font-weight: 700; color: var(--color-primary);">View Appointments &rarr;</a></p>
+        </div>
+    </div>
+
+    <!-- Medication Adherence Section -->
+    <section style="margin-bottom: 2.5rem;">
+        <h2>Medication Adherence Summary</h2>
+        {% if not adherence_summaries %}
+            <div class="card">
+                <p>No medications recorded yet. <a href="/medications">Add a medication to track adherence.</a></p>
+            </div>
+        {% else %}
+            <div style="overflow-x: auto;">
+                <table class="accessible-table" aria-label="Medication Adherence Statistics">
+                    <thead>
+                        <tr>
+                            <th scope="col">Medication</th>
+                            <th scope="col">Total Recorded</th>
+                            <th scope="col">Taken On-Time</th>
+                            <th scope="col">Taken Late</th>
+                            <th scope="col">Missed / Skipped</th>
+                            <th scope="col">Compliance Rate</th>
+                            <th scope="col">Current Streak</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in adherence_summaries %}
+                            <tr>
+                                <th scope="row"><strong>{{ item.medication_name }}</strong></th>
+                                <td>{{ item.total_doses }}</td>
+                                <td><span style="color: #16a34a; font-weight: 700;">{{ item.on_time_doses }}</span></td>
+                                <td><span style="color: #d97706; font-weight: 700;">{{ item.late_doses }}</span></td>
+                                <td><span style="color: #dc2626; font-weight: 700;">{{ item.missed_doses + item.skipped_doses }}</span></td>
+                                <td><strong>{{ item.adherence_percentage }}%</strong></td>
+                                <td>{{ item.streak_days }} in a row</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Upcoming appointments preview -->
+    <section>
+        <h2>Next Appointments</h2>
+        {% if not appointments %}
+            <div class="card">
+                <p>No upcoming appointments found. <a href="/appointments">Schedule an appointment.</a></p>
+            </div>
+        {% else %}
+            <div class="card-grid">
+                {% for appt in appointments[:3] %}
+                    <div class="card">
+                        <h3 style="font-size: 1.4rem;">Dr. {{ appt.doctor }}</h3>
+                        <p><strong>When:</strong> {{ appt.datetime.strftime('%b %d, %Y at %I:%M %p') }}</p>
+                        <p><strong>Where:</strong> {{ appt.place }}</p>
+                        {% if appt.notes %}
+                            <p style="margin-top: 0.5rem; font-style: italic;">{{ appt.notes }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock content %}

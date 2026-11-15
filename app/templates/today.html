@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Today's Medication - CareKey{% endblock %}
+
+{% block content %}
+<section class="elder-today-section">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem;">
+        <div>
+            <h1 style="font-size: 2.75rem; margin-bottom: 0.25rem;">Today's Schedule</h1>
+            <p class="lead-text" style="font-size: 1.5rem; margin-bottom: 0;">
+                Hello, <strong>{{ ctx.member.name }}</strong> &bull; Circle: {{ ctx.circle.name }}
+            </p>
+        </div>
+        <div style="font-size: 1.4rem; font-weight: 800; color: #1e3a8a; background: #e0f2fe; padding: 0.5rem 1.25rem; border-radius: 8px;">
+            Today: {{ today_date_str }}
+        </div>
+    </div>
+
+    {% if not doses %}
+        <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+            <p style="font-size: 1.75rem; font-weight: 700; color: #047857;">
+                🎉 All clear! There are no medications scheduled for today.
+            </p>
+            <p style="font-size: 1.25rem; color: #475569; margin-top: 0.75rem;">
+                Check back tomorrow or view your full schedule under Medications.
+            </p>
+        </div>
+    {% else %}
+        <div class="elder-doses-list" role="feed" aria-label="Today's Scheduled Medications">
+            {% for dose in doses %}
+                <article class="elder-dose-card" aria-labelledby="dose-title-{{ loop.index }}">
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div>
+                            <span style="font-size: 1.4rem; font-weight: 800; color: #1e40af; background: #dbeafe; padding: 0.35rem 0.85rem; border-radius: 6px;">
+                                🕒 {{ dose.time_str }}
+                            </span>
+                            <h2 id="dose-title-{{ loop.index }}" class="elder-med-name" style="margin-top: 0.75rem;">
+                                {{ dose.medication_name }}
+                            </h2>
+                            <p class="elder-med-details">
+                                Dosage: <strong>{{ dose.dosage }}</strong> ({{ dose.dose_amount }})
+                                {% if dose.instructions %}
+                                    <br><span style="font-style: italic;">Instructions: {{ dose.instructions }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div style="min-width: 280px;">
+                            {% if dose.logged %}
+                                <div class="dose-taken-badge" role="status">
+                                    ✓ Taken {% if dose.display_status == 'late' %}(Late){% endif %}
+                                </div>
+                            {% else %}
+                                <form action="/today/dose/take" method="post">
+                                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                    <input type="hidden" name="medication_id" value="{{ dose.medication_id }}">
+                                    <input type="hidden" name="time_str" value="{{ dose.time_str }}">
+                                    <button type="submit" class="btn-elder-take" aria-label="Mark {{ dose.medication_name }} as Taken">
+                                        <span aria-hidden="true" style="font-size: 2.2rem;">💊</span>
+                                        <span>TAKE NOW</span>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endblock content %}

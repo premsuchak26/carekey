@@ -3,6 +3,7 @@
 Provides an isolated, fast dictionary-backed store satisfying RepositoryProtocol.
 """
 
+from collections.abc import Callable
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -16,56 +17,30 @@ class InMemoryRepository[T]:
         self._storage: dict[str, T] = {}
 
     async def get(self, entity_id: str) -> T | None:
-        """Retrieve an entity by its identifier.
-
-        Args:
-            entity_id: The unique identifier of the entity.
-
-        Returns:
-            The stored entity or None if absent.
-        """
+        """Retrieve an entity by its identifier."""
         return self._storage.get(entity_id)
 
     async def list_all(self, limit: int = 100) -> list[T]:
-        """List entities stored in memory up to limit.
-
-        Args:
-            limit: Maximum count to return.
-
-        Returns:
-            List of stored entity items.
-        """
+        """List entities stored in memory up to limit."""
         return list(self._storage.values())[:limit]
 
-    async def save(self, entity_id: str, data: T) -> None:
-        """Persist or overwrite an entity in memory.
+    async def find(self, predicate: Callable[[T], bool]) -> list[T]:
+        """Return all entities satisfying the predicate function."""
+        return [item for item in self._storage.values() if predicate(item)]
 
-        Args:
-            entity_id: Unique identifier for keying.
-            data: Entity data to store.
-        """
+    async def save(self, entity_id: str, data: T) -> None:
+        """Persist or overwrite an entity in memory."""
         self._storage[entity_id] = data
 
     async def delete(self, entity_id: str) -> bool:
-        """Remove an entity from memory.
-
-        Args:
-            entity_id: Unique identifier to remove.
-
-        Returns:
-            True if removed, False if key was not present.
-        """
+        """Remove an entity from memory."""
         if entity_id in self._storage:
             del self._storage[entity_id]
             return True
         return False
 
     async def ping(self) -> bool:
-        """Check availability of in-memory store.
-
-        Returns:
-            True always since memory is available locally.
-        """
+        """Check availability of in-memory store."""
         return True
 
     def clear(self) -> None:

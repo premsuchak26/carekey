@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Circle Created - Save Your Passcode - CareKey{% endblock %}
+
+{% block content %}
+<section class="created-section">
+    <h1>Your Care Circle is Ready!</h1>
+    <p class="lead-text">
+        Welcome, <strong>{{ elder.name }}</strong>. Your private circle <strong>"{{ circle.name }}"</strong> has been created.
+    </p>
+
+    <div class="secret-notice-box" role="region" aria-label="Passcode Warning">
+        <h2 style="color: #92400e; font-size: 1.8rem;">⚠️ Important: Save Your Passcode Now</h2>
+        <p style="font-size: 1.25rem; font-weight: 700; color: #78350f;">
+            For your security and privacy, this passcode is shown <strong>ONCE</strong> and is never stored in readable plain text. Please write it down or save it in a safe place.
+        </p>
+
+        <div style="margin-top: 1.5rem;">
+            <p style="font-weight: 800; font-size: 1.3rem;">Circle Code (Share with your family & caretakers):</p>
+            <div class="secret-key-display">{{ circle.circle_code }}</div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+            <p style="font-weight: 800; font-size: 1.3rem;">Elder Owner Passcode (KEEP PRIVATE):</p>
+            <div class="secret-key-display" style="border-color: #dc2626; color: #991b1b;">{{ owner_passcode }}</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 2rem;">
+        <a href="/login?circle_code={{ circle.circle_code }}" class="btn btn-primary" style="font-size: 1.4rem; padding: 1rem 2rem;">
+            Proceed to Log In
+        </a>
+    </div>
+</section>
+{% endblock content %}

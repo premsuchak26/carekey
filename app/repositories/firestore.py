@@ -3,6 +3,7 @@
 Provides production persistent storage backed by Firestore collections.
 """
 
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 from app.config import Settings
@@ -39,14 +40,7 @@ class FirestoreRepository[T]:
         return self._client
 
     async def get(self, entity_id: str) -> T | None:
-        """Fetch document by ID from Firestore collection.
-
-        Args:
-            entity_id: The document key identifier.
-
-        Returns:
-            The document dictionary or None if not found.
-        """
+        """Fetch document by ID from Firestore collection."""
         client = self._get_client()
         doc_ref = client.collection(self.collection_name).document(entity_id)
         snapshot = await doc_ref.get()
@@ -56,14 +50,7 @@ class FirestoreRepository[T]:
         return data
 
     async def list_all(self, limit: int = 100) -> list[T]:
-        """Fetch documents from collection up to limit.
-
-        Args:
-            limit: Maximum count of documents.
-
-        Returns:
-            List of document dictionaries.
-        """
+        """Fetch documents from collection up to limit."""
         client = self._get_client()
         docs_stream = client.collection(self.collection_name).limit(limit).stream()
         results: list[T] = []
@@ -71,38 +58,27 @@ class FirestoreRepository[T]:
             results.append(doc.to_dict())
         return results
 
-    async def save(self, entity_id: str, data: T) -> None:
-        """Store or overwrite document by ID.
+    async def find(self, predicate: Callable[[T], bool]) -> list[T]:
+        """Filter items matching predicate from collection."""
+        all_items = await self.list_all(limit=1000)
+        return [item for item in all_items if predicate(item)]
 
-        Args:
-            entity_id: Unique document identifier.
-            data: Data payload to store.
-        """
+    async def save(self, entity_id: str, data: T) -> None:
+        """Store or overwrite document by ID."""
         client = self._get_client()
         doc_ref = client.collection(self.collection_name).document(entity_id)
         payload = data if isinstance(data, dict) else dict(data)  # type: ignore[call-overload]
         await doc_ref.set(payload)
 
     async def delete(self, entity_id: str) -> bool:
-        """Delete document by ID.
-
-        Args:
-            entity_id: Document identifier to remove.
-
-        Returns:
-            True once delete operation completes.
-        """
+        """Delete document by ID."""
         client = self._get_client()
         doc_ref = client.collection(self.collection_name).document(entity_id)
         await doc_ref.delete()
         return True
 
     async def ping(self) -> bool:
-        """Check Firestore connectivity.
-
-        Returns:
-            True if connection check succeeds, False otherwise.
-        """
+        """Check Firestore connectivity."""
         try:
             client = self._get_client()
             # Minimal collection query to verify read connectivity
