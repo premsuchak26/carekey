@@ -50,9 +50,7 @@ async def dashboard_screen(
     medications = await med_service.list_medications(circle_id=ctx.circle.id)
     adherence_summaries = await med_service.get_adherence_summary(circle_id=ctx.circle.id)
     overall_streak = await med_service.get_overall_streak(circle_id=ctx.circle.id)
-    appointments = await appt_service.list_appointments(
-        circle_id=ctx.circle.id, upcoming_only=True
-    )
+    appointments = await appt_service.list_appointments(circle_id=ctx.circle.id, upcoming_only=True)
 
     return templates.TemplateResponse(
         request=request,

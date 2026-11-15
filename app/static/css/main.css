@@ -457,3 +457,149 @@ input:focus, select:focus, textarea:focus {
     margin-top: 0.5rem;
     font-weight: 700;
 }
+
+/* Two-Key Rule & Audit Log Styles */
+.risk-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--radius-sm);
+    font-weight: 800;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+}
+.risk-badge.risk-low {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 2px solid #86efac;
+}
+.risk-badge.risk-medium {
+    background-color: #fef9c3;
+    color: #854d0e;
+    border: 2px solid #fde047;
+}
+.risk-badge.risk-high {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 2px solid #fca5a5;
+}
+
+.badge-action {
+    display: inline-block;
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 1rem;
+}
+.badge-action.badge-add {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+.badge-action.badge-edit {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+.badge-action.badge-delete {
+    background-color: #ffe4e6;
+    color: #be123c;
+}
+
+.emergency-banner {
+    border: 3px solid #dc2626;
+    background-color: #fef2f2;
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 2rem;
+}
+.emergency-title {
+    color: #991b1b;
+    font-size: 1.75rem;
+    margin-top: 0;
+}
+.emergency-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 1rem 0 0 0;
+}
+.emergency-item {
+    background: #ffffff;
+    border-left: 5px solid #dc2626;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+    font-size: 1.2rem;
+}
+.badge-emergency {
+    background: #dc2626;
+    color: #ffffff;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.verification-card {
+    margin-bottom: 2rem;
+}
+.verify-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+.verification-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    font-size: 1.25rem;
+}
+.verification-banner .icon {
+    font-size: 2rem;
+}
+
+.activity-list {
+    list-style: none;
+    padding-left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+.activity-card {
+    border-left: 6px solid var(--color-primary);
+}
+.activity-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 1.15rem;
+    color: var(--color-text-secondary);
+}
+.badge-actor {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+}
+.sentence-text {
+    font-size: 1.35rem;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+}
+.chain-details {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-size: 1rem;
+    color: #64748b;
+    border-top: 1px dashed var(--color-border);
+    padding-top: 0.5rem;
+}
+.chain-details code {
+    background: #f1f5f9;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
+

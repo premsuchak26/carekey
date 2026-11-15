@@ -45,9 +45,9 @@ class SessionManager:
             "member_name": member_name,
             "exp": int(time.time()) + max_age,
         }
-        encoded_payload = base64.urlsafe_b64encode(
-            json.dumps(payload).encode("utf-8")
-        ).decode("utf-8")
+        encoded_payload = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode(
+            "utf-8"
+        )
         sig = self._sign(encoded_payload.encode("utf-8"))
         return f"{encoded_payload}.{sig}"
 

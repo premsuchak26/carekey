@@ -75,7 +75,5 @@ async def delete_appointment_action(
     appt_service: Annotated[AppointmentService, Depends(get_appointment_service)],
 ) -> RedirectResponse:
     """Delete an appointment (Elder and MANAGER only)."""
-    await appt_service.delete_appointment(
-        circle_id=ctx.circle.id, appointment_id=appointment_id
-    )
+    await appt_service.delete_appointment(circle_id=ctx.circle.id, appointment_id=appointment_id)
     return RedirectResponse(url="/appointments", status_code=status.HTTP_303_SEE_OTHER)

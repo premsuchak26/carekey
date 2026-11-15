@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from app.models import AdherenceSummary, DoseEvent, DoseSchedule, Medication
 from app.repositories import RepositoryContainer
+from app.services.audit import AuditService
 
 
 class MedicationService:
@@ -14,8 +15,13 @@ class MedicationService:
     LATE_THRESHOLD_SECONDS = 30 * 60  # 30 minutes
     MISSED_THRESHOLD_SECONDS = 2 * 3600  # 2 hours
 
-    def __init__(self, repositories: RepositoryContainer) -> None:
+    def __init__(
+        self,
+        repositories: RepositoryContainer,
+        audit_service: AuditService | None = None,
+    ) -> None:
         self.repos = repositories
+        self.audit = audit_service or AuditService(repositories=repositories)
 
     @classmethod
     def calculate_dose_status(
@@ -48,6 +54,7 @@ class MedicationService:
         times_of_day: list[str] | None = None,
         days_of_week: list[int] | None = None,
         dose_amount: str = "1 tablet",
+        actor_name: str = "Elder",
     ) -> Medication:
         """Add new medication and associated dosing schedule."""
         med_id = str(uuid4())
@@ -73,6 +80,18 @@ class MedicationService:
             schedule=schedule,
         )
         await self.repos.medications.save(medication.id, medication)
+
+        circle = await self.repos.circles.get(circle_id)
+        elder_id = circle.elder_id if circle else ""
+        await self.audit.log_event(
+            elder_id=elder_id,
+            circle_id=circle_id,
+            actor=actor_name,
+            action="medication.add",
+            target=name,
+            details={"dosage": dosage, "instructions": instructions},
+        )
+
         return medication
 
     async def update_medication(
@@ -121,7 +140,9 @@ class MedicationService:
         await self.repos.medications.save(med.id, med)
         return med
 
-    async def delete_medication(self, circle_id: str, medication_id: str) -> bool:
+    async def delete_medication(
+        self, circle_id: str, medication_id: str, actor_name: str = "Elder"
+    ) -> bool:
         """Delete medication and clean up associated schedules and events."""
         med = await self.repos.medications.get(medication_id)
         if not med or med.circle_id != circle_id:
@@ -130,6 +151,17 @@ class MedicationService:
         if med.schedule:
             await self.repos.schedules.delete(med.schedule.id)
         await self.repos.medications.delete(medication_id)
+
+        circle = await self.repos.circles.get(circle_id)
+        elder_id = circle.elder_id if circle else ""
+        await self.audit.log_event(
+            elder_id=elder_id,
+            circle_id=circle_id,
+            actor=actor_name,
+            action="medication.delete",
+            target=med.name,
+            details={"medication_id": medication_id},
+        )
         return True
 
     async def list_medications(self, circle_id: str) -> list[Medication]:
@@ -169,6 +201,23 @@ class MedicationService:
             notes=notes,
         )
         await self.repos.dose_events.save(event.id, event)
+
+        circle = await self.repos.circles.get(circle_id)
+        elder_id = circle.elder_id if circle else ""
+        await self.audit.log_event(
+            elder_id=elder_id,
+            circle_id=circle_id,
+            actor=logged_by or "Caregiver",
+            action="dose.log",
+            target=med.name,
+            details={
+                "status": status,
+                "dose_status": dose_status,
+                "notes": notes,
+                "medication_id": medication_id,
+            },
+            timestamp=log_time,
+        )
         return event
 
     async def get_today_doses(

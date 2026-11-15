@@ -16,6 +16,84 @@
         </div>
     </div>
 
+    <!-- Prominent Emergency Alert Banner -->
+    {% if emergency_proposals %}
+        <div class="alert alert-danger emergency-banner" role="alert" style="border: 4px solid #b91c1c; background: #fef2f2; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+            <h2 style="color: #991b1b; font-size: 2rem; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                ⚠️ EMERGENCY MEDICATION CHANGE APPLIED
+            </h2>
+            <p style="font-size: 1.35rem; color: #7f1d1d; margin-bottom: 1rem;">
+                A caregiver applied an immediate emergency change to your medication list:
+            </p>
+            {% for ep in emergency_proposals %}
+                <div style="background: #ffffff; border-left: 6px solid #b91c1c; padding: 1rem 1.25rem; border-radius: 6px; margin-bottom: 0.75rem;">
+                    <p style="font-size: 1.25rem; margin: 0 0 0.5rem 0;">
+                        <strong>{{ ep.author_name }}</strong> applied <strong>EMERGENCY {{ ep.action | upper }}</strong>
+                        on <strong>{{ (ep.after or ep.before or {}).get('name', 'Medication') }}</strong>
+                        at {{ ep.created_at.strftime('%I:%M %p') }}.
+                    </p>
+                    <p style="font-size: 1.2rem; color: #991b1b; margin: 0;">
+                        <strong>Clinical Reason:</strong> "{{ ep.emergency_reason or ep.reason }}"
+                    </p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Pending Two-Key Proposals for Elder Approval -->
+    {% if pending_proposals and is_elder %}
+        <div class="card" style="border: 3px solid #2563eb; background: #eff6ff; padding: 1.5rem; margin-bottom: 2rem;" aria-labelledby="elder-proposals-heading">
+            <h2 id="elder-proposals-heading" style="color: #1e40af; font-size: 2rem; margin-top: 0;">
+                🔔 Caregiver Changes Awaiting Your Approval (Two-Key Rule)
+            </h2>
+            <p style="font-size: 1.25rem; color: #1e3a8a;">
+                A caregiver proposed the following updates. Please review and tap <strong>Approve</strong> or <strong>Reject</strong>:
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                {% for p in pending_proposals %}
+                    {% set med_name = (p.after or p.before or {}).get('name', 'Medication') %}
+                    <div style="background: #ffffff; border: 2px solid #93c5fd; padding: 1.25rem; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <h3 style="font-size: 1.6rem; margin: 0;">
+                                {{ p.action | upper }}: {{ med_name }}
+                            </h3>
+                            <span class="risk-badge risk-{{ p.risk_level | lower }}" style="font-size: 1.1rem; padding: 0.25rem 0.75rem; border-radius: 6px; font-weight: 700;">
+                                {{ p.risk_level }} RISK
+                            </span>
+                        </div>
+                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                            <strong>From:</strong> {{ p.author_name }} &bull; <em>"{{ p.reason }}"</em>
+                        </p>
+                        {% if p.risk_reasons %}
+                            <ul style="font-size: 1.15rem; color: #b91c1c; margin: 0.5rem 0 1rem 1.5rem;">
+                                {% for r in p.risk_reasons %}
+                                    <li>{{ r }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                            <form action="/proposals/{{ p.id }}/approve" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <button type="submit" class="btn btn-large btn-success" style="font-size: 1.35rem; padding: 0.85rem 1.75rem;" aria-label="Approve change for {{ med_name }}">
+                                    ✓ Approve Change
+                                </button>
+                            </form>
+                            <form action="/proposals/{{ p.id }}/reject" method="post" style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                <input type="text" name="rejection_reason" placeholder="Reason (optional)" class="input-text" style="font-size: 1.2rem; padding: 0.75rem;" aria-label="Reason for rejecting {{ med_name }}">
+                                <button type="submit" class="btn btn-large btn-danger" style="font-size: 1.35rem; padding: 0.85rem 1.5rem;" aria-label="Reject change for {{ med_name }}">
+                                    ✕ Reject
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
     {% if not doses %}
         <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
             <p style="font-size: 1.75rem; font-weight: 700; color: #047857;">

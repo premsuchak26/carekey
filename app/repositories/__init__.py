@@ -5,7 +5,9 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.models import (
     Appointment,
+    AuditEntry,
     CareCircle,
+    ChangeProposal,
     DoseEvent,
     DoseSchedule,
     Elder,
@@ -26,9 +28,7 @@ class RepositoryContainer:
 
         if is_firestore:
             self.elders: RepositoryProtocol[Elder] = FirestoreRepository("elders", settings)
-            self.circles: RepositoryProtocol[CareCircle] = FirestoreRepository(
-                "circles", settings
-            )
+            self.circles: RepositoryProtocol[CareCircle] = FirestoreRepository("circles", settings)
             self.members: RepositoryProtocol[Member] = FirestoreRepository("members", settings)
             self.medications: RepositoryProtocol[Medication] = FirestoreRepository(
                 "medications", settings
@@ -42,6 +42,12 @@ class RepositoryContainer:
             self.appointments: RepositoryProtocol[Appointment] = FirestoreRepository(
                 "appointments", settings
             )
+            self.proposals: RepositoryProtocol[ChangeProposal] = FirestoreRepository(
+                "proposals", settings
+            )
+            self.audit_log: RepositoryProtocol[AuditEntry] = FirestoreRepository(
+                "audit_entries", settings
+            )
         else:
             self.elders = InMemoryRepository[Elder]()
             self.circles = InMemoryRepository[CareCircle]()
@@ -50,6 +56,8 @@ class RepositoryContainer:
             self.schedules = InMemoryRepository[DoseSchedule]()
             self.dose_events = InMemoryRepository[DoseEvent]()
             self.appointments = InMemoryRepository[Appointment]()
+            self.proposals = InMemoryRepository[ChangeProposal]()
+            self.audit_log = InMemoryRepository[AuditEntry]()
 
     def clear(self) -> None:
         """Clear all in-memory repositories (used in testing)."""
@@ -61,6 +69,8 @@ class RepositoryContainer:
             self.schedules,
             self.dose_events,
             self.appointments,
+            self.proposals,
+            self.audit_log,
         ):
             if isinstance(repo, InMemoryRepository):
                 repo.clear()

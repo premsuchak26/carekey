@@ -8,14 +8,17 @@ from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.models import MemberRole
 from app.routes.dependencies import (
     AuthenticatedContext,
     get_current_context,
     get_medication_service,
+    get_proposal_service,
     require_helper,
     verify_csrf,
 )
 from app.services.medication import MedicationService
+from app.services.proposals import ProposalService
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -28,10 +31,17 @@ async def today_screen(
     request: Request,
     ctx: Annotated[AuthenticatedContext, Depends(get_current_context)],
     med_service: Annotated[MedicationService, Depends(get_medication_service)],
+    proposal_service: Annotated[ProposalService, Depends(get_proposal_service)],
 ) -> HTMLResponse:
     """Render high-contrast, large-button Today's Dose screen for elder or caretaker."""
     doses = await med_service.get_today_doses(circle_id=ctx.circle.id)
     today_str = datetime.now().strftime("%A, %B %d")
+
+    pending_proposals = await proposal_service.get_pending_proposals(circle_id=ctx.circle.id)
+    emergency_proposals = await proposal_service.get_emergency_proposals(
+        circle_id=ctx.circle.id, limit=3
+    )
+    is_elder = ctx.member.role == MemberRole.ELDER
 
     return templates.TemplateResponse(
         request=request,
@@ -40,6 +50,9 @@ async def today_screen(
             "ctx": ctx,
             "doses": doses,
             "today_date_str": today_str,
+            "pending_proposals": pending_proposals,
+            "emergency_proposals": emergency_proposals,
+            "is_elder": is_elder,
         },
     )
 

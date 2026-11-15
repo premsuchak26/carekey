@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from app.config import Settings
 from app.models import CareCircle, Elder, Member, MemberRole
 from app.repositories import RepositoryContainer
+from app.services.audit import AuditService
 
 
 class AuthError(Exception):
@@ -29,9 +30,15 @@ class AuthService:
     IP_RATE_LIMIT_WINDOW = 60  # seconds
     IP_RATE_LIMIT_MAX_ATTEMPTS = 10
 
-    def __init__(self, repositories: RepositoryContainer, settings: Settings) -> None:
+    def __init__(
+        self,
+        repositories: RepositoryContainer,
+        settings: Settings,
+        audit_service: AuditService | None = None,
+    ) -> None:
         self.repos = repositories
         self.settings = settings
+        self.audit = audit_service or AuditService(repositories=repositories)
         self._ip_failed_attempts: dict[str, list[float]] = {}
 
     @classmethod
@@ -127,6 +134,7 @@ class AuthService:
         name: str,
         role: MemberRole,
         validity_days: int = 30,
+        actor_name: str = "Elder",
     ) -> tuple[Member, str]:
         """Issue a new random 12-character member key with scrypt hash and expiration."""
         raw_passcode = self.generate_passcode(12)
@@ -142,15 +150,42 @@ class AuthService:
             expires_at=expires_at,
         )
         await self.repos.members.save(member.id, member)
+
+        circle = await self.repos.circles.get(circle_id)
+        elder_id = circle.elder_id if circle else ""
+        # Audit key issuance - PASSCODES ARE NEVER LOGGED
+        await self.audit.log_event(
+            elder_id=elder_id,
+            circle_id=circle_id,
+            actor=actor_name,
+            action="key.issue",
+            target=name,
+            details={"member_name": name, "role": role.value, "validity_days": validity_days},
+        )
+
         return member, raw_passcode
 
-    async def revoke_member_key(self, circle_id: str, member_id: str) -> bool:
+    async def revoke_member_key(
+        self, circle_id: str, member_id: str, actor_name: str = "Elder"
+    ) -> bool:
         """Instantly revoke a member key."""
         member = await self.repos.members.get(member_id)
         if not member or member.circle_id != circle_id:
             return False
         member.revoked_at = datetime.now()
         await self.repos.members.save(member.id, member)
+
+        circle = await self.repos.circles.get(circle_id)
+        elder_id = circle.elder_id if circle else ""
+        # Audit key revocation
+        await self.audit.log_event(
+            elder_id=elder_id,
+            circle_id=circle_id,
+            actor=actor_name,
+            action="key.revoke",
+            target=member.name,
+            details={"member_name": member.name, "role": member.role.value},
+        )
         return True
 
     async def login(
@@ -218,11 +253,31 @@ class AuthService:
                     if m.failed_attempts >= self.LOCKOUT_THRESHOLD:
                         m.locked_until = now + timedelta(minutes=self.LOCKOUT_DURATION_MINUTES)
                     await self.repos.members.save(m.id, m)
+
+            # Audit failed login attempt (PASSCODES ARE NEVER LOGGED)
+            await self.audit.log_event(
+                elder_id=circle.elder_id,
+                circle_id=circle.id,
+                actor=f"Unrecognized ({client_ip})",
+                action="auth.login_failed",
+                target=clean_code,
+                details={"client_ip": client_ip, "reason": "Failed authentication"},
+            )
             raise AuthError("Invalid circle code or passcode.")
 
         # Success: reset failed attempts
         authenticated_member.failed_attempts = 0
         authenticated_member.locked_until = None
         await self.repos.members.save(authenticated_member.id, authenticated_member)
+
+        # Audit successful login
+        await self.audit.log_event(
+            elder_id=circle.elder_id,
+            circle_id=circle.id,
+            actor=authenticated_member.name,
+            action="auth.login",
+            target=clean_code,
+            details={"role": authenticated_member.role.value, "client_ip": client_ip},
+        )
 
         return circle, authenticated_member

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Who Touched My Health Data - Tamper-Evident History - CareKey{% endblock %}
+
+{% block content %}
+<div class="elder-container" role="main">
+    <header class="page-header">
+        <h1 class="page-title">Who Touched My Health Data</h1>
+        <p class="lead-text">
+            An append-only, tamper-evident log of every person who viewed, logged, or modified your care records.
+        </p>
+    </header>
+
+    <!-- Verification Controls & Status Banner -->
+    <section class="verification-card card" aria-labelledby="verify-heading">
+        <div class="verify-header">
+            <div>
+                <h2 id="verify-heading">Cryptographic Chain Verification</h2>
+                <p>Every activity is linked by SHA-256 hashes to guarantee records cannot be altered or deleted unnoticed.</p>
+            </div>
+            <form action="/history/verify" method="post" class="verify-form">
+                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                {% if selected_actor %}
+                    <input type="hidden" name="actor" value="{{ selected_actor }}">
+                {% endif %}
+                <button type="submit" class="btn btn-large btn-primary" aria-label="Verify audit log integrity">
+                    🛡️ Verify History
+                </button>
+            </form>
+        </div>
+
+        {% if verification_status %}
+            <div class="verification-result-box" role="status" aria-live="polite">
+                {% if verification_status.valid %}
+                    <div class="alert alert-success verification-banner">
+                        <span class="icon" aria-hidden="true">✅</span>
+                        <div>
+                            <strong>Audit Log Verified Intact (OK)</strong>
+                            <p>{{ verification_status.message }}</p>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-danger verification-banner" role="alert">
+                        <span class="icon" aria-hidden="true">🚨</span>
+                        <div>
+                            <strong>Tamper Detected in Audit Chain!</strong>
+                            <p>{{ verification_status.message }}</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Filter by Person -->
+    <section class="filter-card card" aria-labelledby="filter-heading">
+        <h2 id="filter-heading" class="sr-only">Filter Activities by Person</h2>
+        <form action="/history" method="get" class="filter-form">
+            <div class="form-group inline-group">
+                <label for="actor-filter">Filter by Person:</label>
+                <select id="actor-filter" name="actor" class="input-select" onchange="this.form.submit()">
+                    <option value="">All People ({{ entries | length }} events)</option>
+                    {% for a in actors %}
+                        <option value="{{ a }}" {% if selected_actor == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <noscript>
+                <button type="submit" class="btn btn-secondary">Apply Filter</button>
+            </noscript>
+            {% if selected_actor %}
+                <a href="/history" class="btn btn-outline" aria-label="Clear person filter">Clear Filter</a>
+            {% endif %}
+        </form>
+    </section>
+
+    <!-- Plain-Language Activity Feed -->
+    <section class="activity-feed-section" aria-labelledby="activity-heading">
+        <h2 id="activity-heading">Activity Feed (Newest First)</h2>
+
+        {% if not entries %}
+            <div class="card empty-state" role="status">
+                <p>No activity recorded yet for the selected filter.</p>
+            </div>
+        {% else %}
+            <ol class="activity-list" role="list">
+                {% for item in entries %}
+                    <li class="card activity-card" role="listitem">
+                        <div class="activity-meta">
+                            <span class="activity-time">{{ item.timestamp }}</span>
+                            <span class="badge badge-actor">{{ item.entry.actor or 'System' }}</span>
+                        </div>
+                        <div class="activity-sentence">
+                            <p class="sentence-text">{{ item.sentence }}</p>
+                        </div>
+                        <div class="chain-details">
+                            <span class="hash-tag" title="SHA-256 Entry Hash: {{ item.entry.hash }}">
+                                🔑 Hash: <code>{{ item.hash_short }}</code>
+                            </span>
+                            <span class="hash-tag" title="Previous Entry Hash: {{ item.entry.prev_hash }}">
+                                🔗 Prev: <code>{{ item.prev_hash_short }}</code>
+                            </span>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ol>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

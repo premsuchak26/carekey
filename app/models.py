@@ -2,7 +2,7 @@
 
 import datetime as dt
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -131,3 +131,61 @@ class AdherenceSummary(BaseModel):
     skipped_doses: int
     adherence_percentage: float
     streak_days: int
+
+
+class RiskLevel(StrEnum):
+    """Risk tiers for medication change proposals."""
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class ProposalStatus(StrEnum):
+    """Lifecycle statuses for two-key change proposals."""
+
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    EMERGENCY_APPLIED = "EMERGENCY_APPLIED"
+
+
+class ChangeProposal(BaseModel):
+    """Two-key rule change proposal submitted by non-elder manager."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    circle_id: str
+    elder_id: str
+    author_id: str
+    author_name: str
+    author_role: str = "MANAGER"
+    target_type: Literal["medication", "schedule"] = "medication"
+    action: Literal["add", "edit", "delete"]
+    before: dict[str, Any] | None = None
+    after: dict[str, Any] | None = None
+    reason: str
+    status: ProposalStatus = ProposalStatus.PENDING
+    risk_level: RiskLevel = RiskLevel.LOW
+    risk_reasons: list[str] = Field(default_factory=list)
+    is_emergency: bool = False
+    emergency_reason: str | None = None
+    rejection_reason: str | None = None
+    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now())
+    resolved_at: dt.datetime | None = None
+    resolved_by_id: str | None = None
+    resolved_by_name: str | None = None
+
+
+class AuditEntry(BaseModel):
+    """Append-only, cryptographically linked audit log entry."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    elder_id: str
+    actor: str
+    action: str
+    target: str
+    timestamp: dt.datetime = Field(default_factory=lambda: dt.datetime.now())
+    details: dict[str, Any] = Field(default_factory=dict)
+    prev_hash: str
+    hash: str
+    circle_id: str = ""

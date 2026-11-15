@@ -34,6 +34,8 @@
                         <li><a href="/today" class="nav-link" {% if request and request.url.path == '/today' %}aria-current="page"{% endif %}>Today's Doses</a></li>
                         <li><a href="/dashboard" class="nav-link" {% if request and request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Dashboard</a></li>
                         <li><a href="/medications" class="nav-link" {% if request and request.url.path == '/medications' %}aria-current="page"{% endif %}>Medications</a></li>
+                        <li><a href="/proposals" class="nav-link" {% if request and request.url.path == '/proposals' %}aria-current="page"{% endif %}>Proposals</a></li>
+                        <li><a href="/history" class="nav-link" {% if request and request.url.path == '/history' %}aria-current="page"{% endif %}>Health History</a></li>
                         <li><a href="/appointments" class="nav-link" {% if request and request.url.path == '/appointments' %}aria-current="page"{% endif %}>Appointments</a></li>
                         {% if ctx.member.role.value == "ELDER" %}
                             <li><a href="/keys" class="nav-link" {% if request and request.url.path == '/keys' %}aria-current="page"{% endif %}>Manage Keys</a></li>
@@ -55,14 +57,14 @@
 
     <!-- Flash Notifications / Alert Messages -->
     <section class="messages-container" aria-label="System Notifications">
-        {% if error %}
+        {% if error or (request and request.query_params.get("error")) %}
             <div class="alert alert-danger" role="alert">
-                <span>{{ error }}</span>
+                <span>{{ error or request.query_params.get("error") }}</span>
             </div>
         {% endif %}
-        {% if success %}
+        {% if success or (request and request.query_params.get("msg")) or (request and request.query_params.get("success")) %}
             <div class="alert alert-success" role="status">
-                <span>{{ success }}</span>
+                <span>{{ success or request.query_params.get("msg") or request.query_params.get("success") }}</span>
             </div>
         {% endif %}
         {% block messages %}{% endblock messages %}

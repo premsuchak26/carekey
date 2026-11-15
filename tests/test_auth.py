@@ -94,9 +94,7 @@ async def test_lockout_after_five_failed_attempts(
 
 
 @pytest.mark.asyncio
-async def test_expired_key_denied(
-    test_repos: RepositoryContainer, test_settings: Settings
-) -> None:
+async def test_expired_key_denied(test_repos: RepositoryContainer, test_settings: Settings) -> None:
     """Verify expired member key cannot log in."""
     auth = AuthService(repositories=test_repos, settings=test_settings)
     circle, _, _ = await auth.create_circle(elder_name="Arthur")
@@ -118,9 +116,7 @@ async def test_expired_key_denied(
 
 
 @pytest.mark.asyncio
-async def test_revoked_key_denied(
-    test_repos: RepositoryContainer, test_settings: Settings
-) -> None:
+async def test_revoked_key_denied(test_repos: RepositoryContainer, test_settings: Settings) -> None:
     """Verify revoked member key is instantly denied login."""
     auth = AuthService(repositories=test_repos, settings=test_settings)
     circle, _, _ = await auth.create_circle(elder_name="Clara")
@@ -147,9 +143,7 @@ async def test_revoked_key_denied(
 
 
 @pytest.mark.asyncio
-async def test_ip_rate_limiting(
-    test_repos: RepositoryContainer, test_settings: Settings
-) -> None:
+async def test_ip_rate_limiting(test_repos: RepositoryContainer, test_settings: Settings) -> None:
     """Verify that exceeding IP rate limit blocks further attempts."""
     auth = AuthService(repositories=test_repos, settings=test_settings)
     ip = "192.168.1.50"

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Key Rule - Medication Proposals - CareKey{% endblock %}
+
+{% block content %}
+<div class="elder-container" role="main">
+    <header class="page-header">
+        <h1 class="page-title">Medication Change Proposals (Two-Key Rule)</h1>
+        <p class="lead-text">
+            To protect safety, changes submitted by caregivers require the elder's direct approval.
+        </p>
+    </header>
+
+    <!-- Emergency Overrides Alert -->
+    {% if emergency_proposals %}
+        <section class="emergency-section" aria-labelledby="emergency-heading">
+            <div class="alert alert-danger emergency-banner" role="alert">
+                <h2 id="emergency-heading" class="emergency-title">⚠️ EMERGENCY CHANGES APPLIED</h2>
+                <p>The following changes were applied immediately under emergency clinical override:</p>
+                <ul class="emergency-list" role="list">
+                    {% for ep in emergency_proposals %}
+                        <li class="emergency-item">
+                            <strong>{{ ep.author_name }} ({{ ep.author_role }})</strong> applied
+                            <span class="badge badge-emergency">EMERGENCY {{ ep.action | upper }}</span>
+                            on <strong>{{ (ep.after or ep.before or {}).get('name', 'Medication') }}</strong>
+                            at {{ ep.created_at.strftime('%b %d, %Y at %I:%M %p') }}.
+                            <br>
+                            <em>Emergency Reason:</em> "{{ ep.emergency_reason or ep.reason }}"
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    {% endif %}
+
+    <!-- Pending Proposals -->
+    <section class="proposals-pending-section" aria-labelledby="pending-heading">
+        <h2 id="pending-heading">Pending Approvals ({{ pending_proposals | length }})</h2>
+
+        {% if not pending_proposals %}
+            <div class="card empty-state" role="status">
+                <p>No medication changes currently waiting for review. Everything is up to date.</p>
+            </div>
+        {% else %}
+            <div class="proposals-grid" role="list">
+                {% for p in pending_proposals %}
+                    {% set med_name = (p.after or p.before or {}).get('name', 'Medication') %}
+                    <article class="card proposal-card" role="listitem" aria-labelledby="prop-title-{{ p.id }}">
+                        <div class="proposal-header">
+                            <div>
+                                <span class="badge badge-action badge-{{ p.action }}">{{ p.action | upper }}</span>
+                                <h3 id="prop-title-{{ p.id }}" class="proposal-title">{{ med_name }}</h3>
+                            </div>
+                            <span class="risk-badge risk-{{ p.risk_level | lower }}" aria-label="Risk level: {{ p.risk_level }}">
+                                {{ p.risk_level }} RISK
+                            </span>
+                        </div>
+
+                        <div class="proposal-meta">
+                            <p><strong>Submitted by:</strong> {{ p.author_name }} ({{ p.author_role }}) on {{ p.created_at.strftime('%b %d at %I:%M %p') }}</p>
+                            <p><strong>Caregiver Reason:</strong> "{{ p.reason }}"</p>
+                        </div>
+
+                        {% if p.risk_reasons %}
+                            <div class="risk-reasons-box" aria-label="Identified Risk Factors">
+                                <strong>Safety Analysis:</strong>
+                                <ul class="risk-reasons-list">
+                                    {% for r in p.risk_reasons %}
+                                        <li>{{ r }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if p.after and p.after.get('schedule') %}
+                            <div class="schedule-preview">
+                                <strong>Proposed Schedule:</strong>
+                                {{ p.after.schedule.dose_amount }} at {{ p.after.schedule.times_of_day | join(', ') }}
+                            </div>
+                        {% endif %}
+
+                        {% if is_elder %}
+                            <div class="proposal-actions">
+                                <!-- Approve Form -->
+                                <form action="/proposals/{{ p.id }}/approve" method="post" class="action-form">
+                                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                    <button type="submit" class="btn btn-large btn-success" aria-label="Approve medication change for {{ med_name }}">
+                                        ✓ Approve Change
+                                    </button>
+                                </form>
+
+                                <!-- Reject Form -->
+                                <form action="/proposals/{{ p.id }}/reject" method="post" class="action-form reject-form">
+                                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                    <label for="reject-reason-{{ p.id }}" class="sr-only">Rejection Reason for {{ med_name }}</label>
+                                    <input type="text" id="reject-reason-{{ p.id }}" name="rejection_reason"
+                                           placeholder="Reason for rejecting (optional)" class="input-text rejection-input">
+                                    <button type="submit" class="btn btn-large btn-danger" aria-label="Reject medication change for {{ med_name }}">
+                                        ✕ Reject
+                                    </button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <div class="pending-notice" role="status">
+                                <em>Waiting for Elder decision. Only the circle owner can approve or reject proposals.</em>
+                            </div>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+
+    <!-- Historical Proposals -->
+    {% if proposal_history %}
+        <section class="proposals-history-section" aria-labelledby="history-heading">
+            <h2 id="history-heading">Recent Proposal History</h2>
+            <div class="table-container">
+                <table class="data-table" aria-label="Historical Proposals">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Medication</th>
+                            <th scope="col">Action</th>
+                            <th scope="col">Author</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Decision Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in proposal_history %}
+                            <tr>
+                                <td>{{ h.created_at.strftime('%b %d, %Y') }}</td>
+                                <td><strong>{{ (h.after or h.before or {}).get('name', 'Medication') }}</strong></td>
+                                <td>{{ h.action | capitalize }}</td>
+                                <td>{{ h.author_name }}</td>
+                                <td>
+                                    <span class="badge badge-status badge-{{ h.status | lower }}">{{ h.status }}</span>
+                                </td>
+                                <td>{{ h.rejection_reason or h.emergency_reason or h.reason or '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

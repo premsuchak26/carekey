@@ -33,6 +33,7 @@ def test_csrf_token_required_on_post(
 
     # Setup circle and elder
     import asyncio
+
     circle, _, _ = asyncio.run(auth.create_circle(elder_name="Robert"))
     members = asyncio.run(test_repos.members.find(lambda m: m.circle_id == circle.id))
     owner = members[0]
@@ -79,6 +80,7 @@ def test_viewer_cannot_add_medication_or_log_dose(
 ) -> None:
     """Verify VIEWER role is strictly read-only."""
     import asyncio
+
     session_mgr = SessionManager(settings=test_settings)
     auth = AuthService(repositories=test_repos, settings=test_settings)
 
@@ -115,6 +117,7 @@ def test_helper_cannot_add_medication_or_keys(
 ) -> None:
     """Verify HELPER can log doses, but cannot create meds or issue keys."""
     import asyncio
+
     session_mgr = SessionManager(settings=test_settings)
     auth = AuthService(repositories=test_repos, settings=test_settings)
 
@@ -153,9 +156,7 @@ async def test_cross_circle_access_denied(
 
     # Circle A
     circle_a, _, _ = await auth.create_circle(elder_name="Circle A Elder")
-    med_a = await med_service.add_medication(
-        circle_id=circle_a.id, name="Med A", dosage="10mg"
-    )
+    med_a = await med_service.add_medication(circle_id=circle_a.id, name="Med A", dosage="10mg")
 
     # Circle B
     circle_b, _, _ = await auth.create_circle(elder_name="Circle B Elder")

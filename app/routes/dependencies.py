@@ -9,8 +9,10 @@ from app.config import Settings, get_settings
 from app.models import CareCircle, Member, MemberRole
 from app.repositories import RepositoryContainer, get_repository_container
 from app.services.appointment import AppointmentService
+from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.medication import MedicationService
+from app.services.proposals import ProposalService
 from app.services.session import SessionManager
 
 
@@ -21,12 +23,20 @@ def get_repos(
     return get_repository_container(settings=settings)
 
 
+def get_audit_service(
+    repos: Annotated[RepositoryContainer, Depends(get_repos)],
+) -> AuditService:
+    """Dependency provider for AuditService."""
+    return AuditService(repositories=repos)
+
+
 def get_auth_service(
     repos: Annotated[RepositoryContainer, Depends(get_repos)],
     settings: Annotated[Settings, Depends(get_settings)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> AuthService:
     """Dependency provider for AuthService."""
-    return AuthService(repositories=repos, settings=settings)
+    return AuthService(repositories=repos, settings=settings, audit_service=audit)
 
 
 def get_session_manager(
@@ -38,9 +48,18 @@ def get_session_manager(
 
 def get_medication_service(
     repos: Annotated[RepositoryContainer, Depends(get_repos)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> MedicationService:
     """Dependency provider for MedicationService."""
-    return MedicationService(repositories=repos)
+    return MedicationService(repositories=repos, audit_service=audit)
+
+
+def get_proposal_service(
+    repos: Annotated[RepositoryContainer, Depends(get_repos)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
+) -> ProposalService:
+    """Dependency provider for ProposalService."""
+    return ProposalService(repositories=repos, audit_service=audit)
 
 
 def get_appointment_service(

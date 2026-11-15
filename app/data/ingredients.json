@@ -1,0 +1,72 @@
+{
+  "acetaminophen": {
+    "ingredient": "acetaminophen",
+    "daily_max_mg": 4000,
+    "brand_names": ["tylenol", "paracetamol", "panadol", "mapap"]
+  },
+  "aspirin": {
+    "ingredient": "aspirin",
+    "daily_max_mg": 4000,
+    "brand_names": ["bayer", "ecotrin", "bufferin"]
+  },
+  "ibuprofen": {
+    "ingredient": "ibuprofen",
+    "daily_max_mg": 2400,
+    "brand_names": ["advil", "motrin", "nuprin"]
+  },
+  "naproxen": {
+    "ingredient": "naproxen",
+    "daily_max_mg": 1500,
+    "brand_names": ["aleve", "naprosyn", "anaprox"]
+  },
+  "lisinopril": {
+    "ingredient": "lisinopril",
+    "daily_max_mg": 40,
+    "brand_names": ["prinivil", "zestril"]
+  },
+  "metformin": {
+    "ingredient": "metformin",
+    "daily_max_mg": 2550,
+    "brand_names": ["glucophage", "fortamet", "glumetza"]
+  },
+  "atorvastatin": {
+    "ingredient": "atorvastatin",
+    "daily_max_mg": 80,
+    "brand_names": ["lipitor"]
+  },
+  "simvastatin": {
+    "ingredient": "simvastatin",
+    "daily_max_mg": 40,
+    "brand_names": ["zocor"]
+  },
+  "amlodipine": {
+    "ingredient": "amlodipine",
+    "daily_max_mg": 10,
+    "brand_names": ["norvasc"]
+  },
+  "omeprazole": {
+    "ingredient": "omeprazole",
+    "daily_max_mg": 40,
+    "brand_names": ["prilosec"]
+  },
+  "levothyroxine": {
+    "ingredient": "levothyroxine",
+    "daily_max_mg": 0.3,
+    "brand_names": ["synthroid", "levoxyl", "tirosint"]
+  },
+  "warfarin": {
+    "ingredient": "warfarin",
+    "daily_max_mg": 10,
+    "brand_names": ["coumadin", "jantoven"]
+  },
+  "gabapentin": {
+    "ingredient": "gabapentin",
+    "daily_max_mg": 3600,
+    "brand_names": ["neurontin"]
+  },
+  "hydrochlorothiazide": {
+    "ingredient": "hydrochlorothiazide",
+    "daily_max_mg": 50,
+    "brand_names": ["microzide"]
+  }
+}

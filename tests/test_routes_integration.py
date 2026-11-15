@@ -25,6 +25,7 @@ def test_full_elder_and_caretaker_flow(
 
     # Extract circle code
     import asyncio
+
     circles = asyncio.run(test_repos.circles.find(lambda c: c.name == "Rose Care Circle"))
     assert len(circles) == 1
     circle = circles[0]
@@ -121,3 +122,58 @@ def test_full_elder_and_caretaker_flow(
     assert res_appt.status_code == status.HTTP_200_OK
     assert "Dr. Smith" in res_appt.text
     assert "Central Clinic" in res_appt.text
+
+    # 8. Test Manager Two-Key Proposal submission via HTTP
+    from app.models import MemberRole
+
+    kelly_members = asyncio.run(test_repos.members.find(lambda m: m.name == "Nurse Kelly"))
+    assert len(kelly_members) == 1
+    kelly = kelly_members[0]
+    kelly.role = MemberRole.MANAGER
+    asyncio.run(test_repos.members.save(kelly.id, kelly))
+
+    # Create Manager session with real database member ID
+    mgr_token = session_mgr.create_session_token(
+        circle_id=circle.id,
+        member_id=kelly.id,
+        role=kelly.role.value,
+        member_name=kelly.name,
+    )
+    client.cookies.set(session_mgr.COOKIE_NAME, mgr_token)
+    mgr_csrf = session_mgr.generate_csrf_token(kelly.id)
+
+    res_prop = client.post(
+        "/medications/add",
+        data={
+            "name": "Aspirin",
+            "dosage": "81mg",
+            "reason": "Cardioprotection recommended",
+            "csrf_token": mgr_csrf,
+        },
+        follow_redirects=True,
+    )
+    assert res_prop.status_code == status.HTTP_200_OK
+    assert "Proposal submitted for Elder approval" in res_prop.text
+
+    # Switch back to Elder session
+    client.cookies.set(session_mgr.COOKIE_NAME, token)
+
+    # 9. Elder views Today screen and sees pending proposal
+    res_today_prop = client.get("/today")
+    assert res_today_prop.status_code == status.HTTP_200_OK
+    assert "Aspirin" in res_today_prop.text
+    assert "Approve Change" in res_today_prop.text
+
+    # 10. Check Audit Log History Page ("Who touched my health data")
+    res_history = client.get("/history")
+    assert res_history.status_code == status.HTTP_200_OK
+    assert "Who Touched My Health Data" in res_history.text
+    assert "Verify History" in res_history.text
+
+    # 11. Verify History Cryptographic Chain
+    res_verify = client.post(
+        "/history/verify",
+        data={"csrf_token": csrf},
+    )
+    assert res_verify.status_code == status.HTTP_200_OK
+    assert "Audit Log Verified Intact" in res_verify.text
