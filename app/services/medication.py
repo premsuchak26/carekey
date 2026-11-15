@@ -4,6 +4,15 @@ from datetime import date, datetime, time
 from typing import Any, Literal
 from uuid import uuid4
 
+from app.constants import (
+    DOSE_STATUS_LATE,
+    DOSE_STATUS_MISSED,
+    DOSE_STATUS_ON_TIME,
+    DOSE_STATUS_SKIPPED,
+    DOSE_STATUS_TAKEN,
+    LATE_THRESHOLD_SECONDS,
+    MISSED_THRESHOLD_SECONDS,
+)
 from app.models import AdherenceSummary, DoseEvent, DoseSchedule, Medication
 from app.repositories import RepositoryContainer
 from app.services.audit import AuditService
@@ -12,8 +21,8 @@ from app.services.audit import AuditService
 class MedicationService:
     """Handles medication CRUD, schedule generation, dose logging, and adherence."""
 
-    LATE_THRESHOLD_SECONDS = 30 * 60  # 30 minutes
-    MISSED_THRESHOLD_SECONDS = 2 * 3600  # 2 hours
+    LATE_THRESHOLD_SECONDS = LATE_THRESHOLD_SECONDS
+    MISSED_THRESHOLD_SECONDS = MISSED_THRESHOLD_SECONDS
 
     def __init__(
         self,
@@ -31,18 +40,15 @@ class MedicationService:
         status: Literal["taken", "skipped"],
     ) -> Literal["on_time", "late", "missed", "skipped"]:
         """Compute status based on scheduled vs actual administration time."""
-        if status == "skipped":
-            return "skipped"
+        if status == DOSE_STATUS_SKIPPED:
+            return DOSE_STATUS_SKIPPED
 
         diff_seconds = (timestamp - scheduled_time).total_seconds()
-        # If taken early or within 30 minutes after scheduled time
         if diff_seconds <= cls.LATE_THRESHOLD_SECONDS:
-            return "on_time"
-        # Over 30 minutes but within 2 hours
+            return DOSE_STATUS_ON_TIME
         if diff_seconds <= cls.MISSED_THRESHOLD_SECONDS:
-            return "late"
-        # Over 2 hours late
-        return "missed"
+            return DOSE_STATUS_LATE
+        return DOSE_STATUS_MISSED
 
     async def add_medication(
         self,
@@ -116,7 +122,6 @@ class MedicationService:
         med.instructions = instructions
         med.prescribing_doctor = prescribing_doctor
 
-        # Update or create schedule
         times = times_of_day or ["08:00"]
         days = days_of_week if days_of_week is not None else [0, 1, 2, 3, 4, 5, 6]
 
@@ -213,7 +218,7 @@ class MedicationService:
             target=med.name,
             details={
                 "status": status,
-                "dose_status": dose_status,
+                "dose_status": resolved_status,
                 "notes": notes,
                 "medication_id": medication_id,
             },
@@ -221,80 +226,98 @@ class MedicationService:
         )
         return event
 
+    @staticmethod
+    def _index_logged_events(events: list[DoseEvent]) -> dict[str, DoseEvent]:
+        """Index logged events by medication_id and scheduled HH:MM."""
+        logged_map: dict[str, DoseEvent] = {}
+        for event in events:
+            time_key = event.scheduled_time.strftime("%H:%M")
+            logged_map[f"{event.medication_id}:{time_key}"] = event
+        return logged_map
+
+    @staticmethod
+    def _is_med_active_today(med: Medication, today: date, weekday: int) -> bool:
+        """Check if medication is active and scheduled on given day."""
+        if not med.schedule:
+            return False
+        if weekday not in med.schedule.days_of_week:
+            return False
+        if med.schedule.start_date > today:
+            return False
+        return not (med.schedule.end_date and med.schedule.end_date < today)
+
+    def _build_dose_entry(
+        self,
+        med: Medication,
+        t_str: str,
+        today: date,
+        now: datetime,
+        logged_map: dict[str, DoseEvent],
+    ) -> dict[str, Any] | None:
+        """Construct display entry for a specific scheduled time."""
+        try:
+            hour, minute = map(int, t_str.split(":"))
+            sched_dt = datetime.combine(today, time(hour, minute))
+        except (ValueError, IndexError):
+            return None
+
+        logged_event = logged_map.get(f"{med.id}:{t_str}")
+        status: str
+        display_status: str
+        if logged_event:
+            status = logged_event.status
+            display_status = logged_event.dose_status
+            logged = True
+        else:
+            logged = False
+            status = "pending"
+            diff = (now - sched_dt).total_seconds()
+            if diff > self.MISSED_THRESHOLD_SECONDS:
+                display_status = DOSE_STATUS_MISSED
+            elif diff > self.LATE_THRESHOLD_SECONDS:
+                display_status = DOSE_STATUS_LATE
+            else:
+                display_status = "upcoming"
+
+        dose_amount = med.schedule.dose_amount if med.schedule else "1 tablet"
+        return {
+            "medication_id": med.id,
+            "medication_name": med.name,
+            "dosage": med.dosage,
+            "instructions": med.instructions,
+            "dose_amount": dose_amount,
+            "time_str": t_str,
+            "scheduled_time": sched_dt,
+            "logged": logged,
+            "status": status,
+            "display_status": display_status,
+            "event": logged_event,
+        }
+
     async def get_today_doses(
         self, circle_id: str, target_date: date | None = None
     ) -> list[dict[str, Any]]:
         """Retrieve scheduled doses for today with current administration status."""
         today = target_date or datetime.now().date()
-        weekday = today.weekday()  # 0=Monday
+        weekday = today.weekday()
 
         medications = await self.list_medications(circle_id)
         events = await self.repos.dose_events.find(
             lambda e: e.circle_id == circle_id and e.scheduled_time.date() == today
         )
-
-        # Index logged events by medication_id and scheduled HH:MM
-        logged_map: dict[str, DoseEvent] = {}
-        for event in events:
-            time_key = event.scheduled_time.strftime("%H:%M")
-            key = f"{event.medication_id}:{time_key}"
-            logged_map[key] = event
+        logged_map = self._index_logged_events(events)
 
         doses: list[dict[str, Any]] = []
         now = datetime.now()
 
         for med in medications:
-            if not med.schedule:
-                continue
-            if weekday not in med.schedule.days_of_week:
-                continue
-            if med.schedule.start_date > today:
-                continue
-            if med.schedule.end_date and med.schedule.end_date < today:
+            if not self._is_med_active_today(med, today, weekday) or not med.schedule:
                 continue
 
             for t_str in med.schedule.times_of_day:
-                try:
-                    hour, minute = map(int, t_str.split(":"))
-                    sched_dt = datetime.combine(today, time(hour, minute))
-                except Exception:
-                    continue
-
-                event_key = f"{med.id}:{t_str}"
-                logged_event = logged_map.get(event_key)
-
-                status: str
-                display_status: str
-                if logged_event:
-                    status = logged_event.status
-                    display_status = logged_event.dose_status
-                    logged = True
-                else:
-                    logged = False
-                    status = "pending"
-                    diff = (now - sched_dt).total_seconds()
-                    if diff > self.MISSED_THRESHOLD_SECONDS:
-                        display_status = "missed"
-                    elif diff > self.LATE_THRESHOLD_SECONDS:
-                        display_status = "late"
-                    else:
-                        display_status = "upcoming"
-
-                doses.append(
-                    {
-                        "medication_id": med.id,
-                        "medication_name": med.name,
-                        "dosage": med.dosage,
-                        "instructions": med.instructions,
-                        "dose_amount": med.schedule.dose_amount,
-                        "time_str": t_str,
-                        "scheduled_time": sched_dt,
-                        "logged": logged,
-                        "status": status,
-                        "display_status": display_status,
-                        "event": logged_event,
-                    }
-                )
+                entry = self._build_dose_entry(med, t_str, today, now, logged_map)
+                if entry is not None:
+                    doses.append(entry)
 
         doses.sort(key=lambda d: str(d["scheduled_time"]))
         return doses
@@ -308,19 +331,18 @@ class MedicationService:
         for med in medications:
             med_events = [e for e in events if e.medication_id == med.id]
             total = len(med_events)
-            taken = sum(1 for e in med_events if e.status == "taken")
-            on_time = sum(1 for e in med_events if e.dose_status == "on_time")
-            late = sum(1 for e in med_events if e.dose_status == "late")
-            missed = sum(1 for e in med_events if e.dose_status == "missed")
-            skipped = sum(1 for e in med_events if e.status == "skipped")
+            taken = sum(1 for e in med_events if e.status == DOSE_STATUS_TAKEN)
+            on_time = sum(1 for e in med_events if e.dose_status == DOSE_STATUS_ON_TIME)
+            late = sum(1 for e in med_events if e.dose_status == DOSE_STATUS_LATE)
+            missed = sum(1 for e in med_events if e.dose_status == DOSE_STATUS_MISSED)
+            skipped = sum(1 for e in med_events if e.status == DOSE_STATUS_SKIPPED)
 
             pct = (taken / total * 100.0) if total > 0 else 100.0
 
-            # Compute streak (consecutive doses taken without missed/skipped)
             sorted_events = sorted(med_events, key=lambda e: e.scheduled_time, reverse=True)
             streak = 0
             for ev in sorted_events:
-                if ev.status == "taken":
+                if ev.status == DOSE_STATUS_TAKEN:
                     streak += 1
                 else:
                     break
@@ -350,7 +372,7 @@ class MedicationService:
         sorted_events = sorted(events, key=lambda e: e.scheduled_time, reverse=True)
         streak = 0
         for ev in sorted_events:
-            if ev.status == "taken":
+            if ev.status == DOSE_STATUS_TAKEN:
                 streak += 1
             else:
                 break

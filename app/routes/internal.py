@@ -46,7 +46,7 @@ async def process_tick(
             # Handle URL-decoded '+' as space in timezone offsets
             clean_now = now.replace(" ", "+") if " " in now and "+" not in now else now
             parsed_now = dt.datetime.fromisoformat(clean_now)
-        except Exception:
-            pass
+        except ValueError:
+            parsed_now = None
 
     return await reminder_service.process_tick(now=parsed_now)

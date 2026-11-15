@@ -1,12 +1,10 @@
 """Authentication and key management routes."""
 
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.models import MemberRole
 from app.repositories import RepositoryContainer
@@ -20,9 +18,7 @@ from app.routes.dependencies import (
 )
 from app.services.auth import AuthError, AuthService
 from app.services.session import SessionManager
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(tags=["Authentication"])
 
@@ -31,6 +27,27 @@ router = APIRouter(tags=["Authentication"])
 async def create_circle_page(request: Request) -> HTMLResponse:
     """Render create care circle page."""
     return templates.TemplateResponse(request=request, name="create_circle.html")
+
+
+def _render_create_circle_error(
+    request: Request,
+    error: str,
+    elder_name: str,
+    elder_email: str,
+    timezone: str,
+) -> HTMLResponse:
+    """Render the create circle form with validation error message."""
+    return templates.TemplateResponse(
+        request=request,
+        name="create_circle.html",
+        context={
+            "error": error,
+            "elder_name": elder_name,
+            "elder_email": elder_email,
+            "timezone": timezone,
+        },
+        status_code=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 @router.post("/circle/create", response_class=HTMLResponse)
@@ -44,16 +61,8 @@ async def create_circle_action(
 ) -> HTMLResponse:
     """Create a new circle with required email and timezone, displaying the owner passcode once."""
     if not elder_name.strip():
-        return templates.TemplateResponse(
-            request=request,
-            name="create_circle.html",
-            context={
-                "error": "Elder name is required.",
-                "elder_name": elder_name,
-                "elder_email": elder_email,
-                "timezone": timezone,
-            },
-            status_code=status.HTTP_400_BAD_REQUEST,
+        return _render_create_circle_error(
+            request, "Elder name is required.", elder_name, elder_email, timezone
         )
 
     try:
@@ -64,16 +73,8 @@ async def create_circle_action(
             timezone=timezone.strip(),
         )
     except ValueError as exc:
-        return templates.TemplateResponse(
-            request=request,
-            name="create_circle.html",
-            context={
-                "error": str(exc),
-                "elder_name": elder_name,
-                "elder_email": elder_email,
-                "timezone": timezone,
-            },
-            status_code=status.HTTP_400_BAD_REQUEST,
+        return _render_create_circle_error(
+            request, str(exc), elder_name, elder_email, timezone
         )
 
     return templates.TemplateResponse(
@@ -171,6 +172,14 @@ async def manage_keys_page(
     )
 
 
+def _resolve_member_role(role: str) -> MemberRole:
+    """Safely parse member role from form string, defaulting to HELPER."""
+    try:
+        return MemberRole(role)
+    except ValueError:
+        return MemberRole.HELPER
+
+
 @router.post("/keys/issue", response_class=HTMLResponse)
 async def issue_key_action(
     request: Request,
@@ -184,10 +193,7 @@ async def issue_key_action(
     validity_days: Annotated[int, Form()] = 30,
 ) -> HTMLResponse:
     """Issue a new random 12-character member key with required validated email."""
-    try:
-        member_role = MemberRole(role)
-    except ValueError:
-        member_role = MemberRole.HELPER
+    member_role = _resolve_member_role(role)
 
     try:
         new_member, new_passcode = await auth_service.issue_member_key(

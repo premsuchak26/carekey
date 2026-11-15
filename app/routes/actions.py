@@ -6,9 +6,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.config import Settings, get_settings
+from app.constants import ACTION_CALL_ME, ACTION_SNOOZE, ACTION_TOOK_IT
 from app.repositories import RepositoryContainer
 from app.routes.dependencies import (
     get_action_token_manager,
@@ -21,9 +21,9 @@ from app.services.action_tokens import ActionTokenManager
 from app.services.audit import AuditService
 from app.services.email import EmailSenderProtocol
 from app.services.medication import MedicationService
+from app.templates_config import templates
 
 router = APIRouter(prefix="/actions", tags=["actions"])
-templates = Jinja2Templates(directory="app/templates")
 
 
 def compute_action_csrf(secret_key: str, token: str) -> str:
@@ -33,6 +33,32 @@ def compute_action_csrf(secret_key: str, token: str) -> str:
         f"action_csrf:{token}".encode(),
         hashlib.sha256,
     ).hexdigest()
+
+
+def _get_action_ui_metadata(action: str, med_name: str) -> tuple[str, str, str, str]:
+    """Return title, description, button text, and CSS class for action confirmation UI."""
+    if action in (ACTION_TOOK_IT, "taken"):
+        return (
+            "Confirm You Took Your Medication",
+            f"Please confirm that you took your scheduled dose of {med_name}.",
+            "Yes, I Took It",
+            "btn-success",
+        )
+    if action == ACTION_SNOOZE:
+        return (
+            "Snooze Reminder",
+            f"We will pause and remind you again in 15 minutes for your {med_name} dose.",
+            "Yes, Snooze 15 Min",
+            "btn-primary",
+        )
+    if action == ACTION_CALL_ME:
+        return (
+            "Request a Phone Call",
+            "We will immediately alert your care circle helpers to give you a call.",
+            "Yes, Please Call Me",
+            "btn-danger",
+        )
+    return ("Confirm Action", "Please confirm this action.", "Confirm", "btn-primary")
 
 
 @router.get("/confirm", response_class=HTMLResponse)
@@ -59,29 +85,9 @@ async def confirm_action_page(
     med = await repos.medications.get(payload.medication_id)
     med_name = med.name if med else "Medication"
     dosage = med.dosage if med else ""
-
     csrf_token = compute_action_csrf(settings.secret_key, token)
 
-    if payload.action in ("took_it", "taken"):
-        action_title = "Confirm You Took Your Medication"
-        description = f"Please confirm that you took your scheduled dose of {med_name}."
-        button_text = "Yes, I Took It"
-        button_class = "btn-success"
-    elif payload.action == "snooze":
-        action_title = "Snooze Reminder"
-        description = f"We will pause and remind you again in 15 minutes for your {med_name} dose."
-        button_text = "Yes, Snooze 15 Min"
-        button_class = "btn-primary"
-    elif payload.action == "call_me":
-        action_title = "Request a Phone Call"
-        description = "We will immediately alert your care circle helpers to give you a call."
-        button_text = "Yes, Please Call Me"
-        button_class = "btn-danger"
-    else:
-        action_title = "Confirm Action"
-        description = "Please confirm this action."
-        button_text = "Confirm"
-        button_class = "btn-primary"
+    title, desc, btn_text, btn_cls = _get_action_ui_metadata(payload.action, med_name)
 
     return templates.TemplateResponse(
         request=request,
@@ -90,10 +96,10 @@ async def confirm_action_page(
             "request": request,
             "token": token,
             "csrf_token": csrf_token,
-            "action_title": action_title,
-            "description": description,
-            "button_text": button_text,
-            "button_class": button_class,
+            "action_title": title,
+            "description": desc,
+            "button_text": btn_text,
+            "button_class": btn_cls,
             "medication_name": med_name,
             "dosage": dosage,
             "scheduled_time": payload.scheduled_time,

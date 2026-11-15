@@ -1,12 +1,10 @@
 """Appointment scheduling and viewing routes."""
 
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.routes.dependencies import (
     AuthenticatedContext,
@@ -16,9 +14,7 @@ from app.routes.dependencies import (
     verify_csrf,
 )
 from app.services.appointment import AppointmentService
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
@@ -54,7 +50,7 @@ async def add_appointment_action(
     """Schedule a new appointment (Elder and MANAGER only)."""
     try:
         appt_dt = datetime.fromisoformat(datetime_str)
-    except Exception:
+    except ValueError:
         appt_dt = datetime.now()
 
     await appt_service.add_appointment(

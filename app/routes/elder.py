@@ -1,12 +1,10 @@
 """Elder-first simplified screens and one-click dose actions."""
 
 from datetime import datetime, time
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.models import MemberRole
 from app.routes.dependencies import (
@@ -19,9 +17,7 @@ from app.routes.dependencies import (
 )
 from app.services.medication import MedicationService
 from app.services.proposals import ProposalService
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(tags=["Elder Today"])
 
@@ -70,7 +66,7 @@ async def take_dose_action(
     try:
         hour, minute = map(int, time_str.split(":"))
         scheduled_dt = datetime.combine(now.date(), time(hour, minute))
-    except Exception:
+    except (ValueError, IndexError):
         scheduled_dt = now
 
     await med_service.log_dose(

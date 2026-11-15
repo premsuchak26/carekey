@@ -1,11 +1,9 @@
 """Caretaker dashboard and landing routes."""
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.routes.dependencies import (
     AuthenticatedContext,
@@ -17,9 +15,7 @@ from app.routes.dependencies import (
 from app.services.appointment import AppointmentService
 from app.services.medication import MedicationService
 from app.services.session import SessionManager
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(tags=["Dashboard"])
 

@@ -1,12 +1,10 @@
 """Medication and dose scheduling routes."""
 
 from datetime import datetime
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.models import MemberRole
 from app.routes.dependencies import (
@@ -20,11 +18,34 @@ from app.routes.dependencies import (
 )
 from app.services.medication import MedicationService
 from app.services.proposals import ProposalService
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(prefix="/medications", tags=["Medications"])
+
+
+def _build_schedule_payload(
+    name: str,
+    dosage: str,
+    instructions: str,
+    prescribing_doctor: str,
+    times_of_day: str,
+    dose_amount: str,
+) -> tuple[dict[str, Any], list[str]]:
+    """Parse form inputs into a structured medication payload and schedule list."""
+    times_list = [t.strip() for t in times_of_day.split(",") if t.strip()] or ["08:00"]
+    payload: dict[str, Any] = {
+        "name": name.strip(),
+        "dosage": dosage.strip(),
+        "instructions": instructions.strip(),
+        "prescribing_doctor": prescribing_doctor.strip(),
+        "schedule": {
+            "times_of_day": times_list,
+            "days_of_week": [0, 1, 2, 3, 4, 5, 6],
+            "dose_amount": dose_amount.strip(),
+            "max_doses_per_day": len(times_list),
+        },
+    }
+    return payload, times_list
 
 
 @router.get("", response_class=HTMLResponse)
@@ -62,26 +83,16 @@ async def add_medication_action(
     emergency_reason: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     """Add a new medication and schedule (Elder direct, MANAGER via proposal or emergency)."""
-    times_list = [t.strip() for t in times_of_day.split(",") if t.strip()]
-    if not times_list:
-        times_list = ["08:00"]
+    after_payload, times_list = _build_schedule_payload(
+        name=name,
+        dosage=dosage,
+        instructions=instructions,
+        prescribing_doctor=prescribing_doctor,
+        times_of_day=times_of_day,
+        dose_amount=dose_amount,
+    )
 
-    after_payload = {
-        "name": name.strip(),
-        "dosage": dosage.strip(),
-        "instructions": instructions.strip(),
-        "prescribing_doctor": prescribing_doctor.strip(),
-        "schedule": {
-            "times_of_day": times_list,
-            "days_of_week": [0, 1, 2, 3, 4, 5, 6],
-            "dose_amount": dose_amount.strip(),
-            "max_doses_per_day": len(times_list),
-        },
-    }
-
-    is_elder = ctx.member.role == MemberRole.ELDER
-
-    if is_elder:
+    if ctx.member.role == MemberRole.ELDER:
         await med_service.add_medication(
             circle_id=ctx.circle.id,
             name=name.strip(),
@@ -96,7 +107,6 @@ async def add_medication_action(
             url="/medications?msg=Medication+added", status_code=status.HTTP_303_SEE_OTHER
         )
 
-    # Non-elder MANAGER: Emergency override or Two-Key Proposal
     if is_emergency:
         if not emergency_reason.strip():
             return RedirectResponse(
@@ -119,7 +129,6 @@ async def add_medication_action(
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
-    # Two-Key rule proposal
     user_reason = reason.strip() or f"Proposal to add {name.strip()} by {ctx.member.name}"
     await proposal_service.create_proposal(
         circle_id=ctx.circle.id,
@@ -155,9 +164,7 @@ async def delete_medication_action(
         return RedirectResponse(url="/medications", status_code=status.HTTP_303_SEE_OTHER)
 
     before_payload = med.model_dump()
-    is_elder = ctx.member.role == MemberRole.ELDER
-
-    if is_elder:
+    if ctx.member.role == MemberRole.ELDER:
         await med_service.delete_medication(
             circle_id=ctx.circle.id, medication_id=medication_id, actor_name=ctx.member.name
         )
@@ -203,7 +210,6 @@ async def delete_medication_action(
         url="/medications?msg=Removal+proposal+submitted+for+Elder+approval",
         status_code=status.HTTP_303_SEE_OTHER,
     )
-    return RedirectResponse(url="/medications", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/log-dose")

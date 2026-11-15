@@ -107,6 +107,16 @@ class AuditService:
     def __init__(self, repositories: RepositoryContainer) -> None:
         self.repos = repositories
 
+    async def _get_prev_hash(self, circle_id: str, elder_id: str) -> str:
+        """Retrieve previous hash in chain for circle or elder."""
+        existing = await self.repos.audit_log.find(
+            lambda e: e.circle_id == circle_id if circle_id else e.elder_id == elder_id
+        )
+        if existing:
+            sorted_existing = sorted(existing, key=lambda e: e.timestamp)
+            return sorted_existing[-1].hash
+        return GENESIS_HASH
+
     async def log_event(
         self,
         elder_id: str,
@@ -122,15 +132,7 @@ class AuditService:
         entry_time = timestamp or dt.datetime.now()
         entry_id = str(uuid4())
 
-        # Retrieve existing entries to locate current head hash
-        existing = await self.repos.audit_log.find(
-            lambda e: e.circle_id == circle_id if circle_id else e.elder_id == elder_id
-        )
-        if existing:
-            sorted_existing = sorted(existing, key=lambda e: e.timestamp)
-            prev_hash = sorted_existing[-1].hash
-        else:
-            prev_hash = GENESIS_HASH
+        prev_hash = await self._get_prev_hash(circle_id, elder_id)
 
         payload = canonical_entry_payload(
             entry_id=entry_id,
@@ -182,12 +184,50 @@ class AuditService:
         return verify_chain(entries)
 
     @staticmethod
-    def format_sentence(entry: AuditEntry) -> str:
+    def _format_proposal_sentence(
+        action: str, actor: str, target: str, details: dict[str, Any], time_str: str
+    ) -> str:
+        """Format sentences for two-key change proposals and approvals."""
+        med_name = details.get("medication_name", target)
+        match action:
+            case "proposal.create":
+                act = details.get("action", "change")
+                risk = details.get("risk_level", "NORMAL")
+                reason = details.get("reason", "")
+                reason_part = f" Reason: '{reason}'." if reason else ""
+                return (
+                    f"{actor} submitted a {risk}-risk request to {act} medication '{med_name}' "
+                    f"on {time_str}.{reason_part}"
+                )
+            case "proposal.approve":
+                return f"{actor} approved the medication change for '{med_name}' on {time_str}."
+            case "proposal.reject":
+                reason = details.get("rejection_reason", "")
+                reason_part = f" Reason: '{reason}'." if reason else ""
+                return (
+                    f"{actor} rejected the medication change for '{med_name}' "
+                    f"on {time_str}.{reason_part}"
+                )
+            case "proposal.emergency" | "emergency_override.medication":
+                act = details.get("action", "modify")
+                reason = details.get("reason", "")
+                return (
+                    f"EMERGENCY OVERRIDE: {actor} immediately applied a change to "
+                    f"{act} '{med_name}' on {time_str}. Stated emergency reason: '{reason}'."
+                )
+            case _:
+                return f"{actor} updated proposal '{target}' on {time_str}."
+
+    @classmethod
+    def format_sentence(cls, entry: AuditEntry) -> str:
         """Convert a structured audit entry into a human-friendly plain-language sentence."""
         time_str = entry.timestamp.strftime("%b %d, %Y at %I:%M %p")
         actor = entry.actor or "Someone"
         target = entry.target
         details = entry.details or {}
+
+        if entry.action.startswith("proposal.") or entry.action.startswith("emergency_override."):
+            return cls._format_proposal_sentence(entry.action, actor, target, details, time_str)
 
         match entry.action:
             case "auth.login":
@@ -203,35 +243,6 @@ class AuditService:
             case "key.revoke":
                 name = details.get("member_name", target)
                 return f"{actor} revoked access for {name} on {time_str}."
-            case "proposal.create":
-                med_name = details.get("medication_name", target)
-                act = details.get("action", "change")
-                risk = details.get("risk_level", "NORMAL")
-                reason = details.get("reason", "")
-                reason_part = f" Reason: '{reason}'." if reason else ""
-                return (
-                    f"{actor} submitted a {risk}-risk request to {act} medication '{med_name}' "
-                    f"on {time_str}.{reason_part}"
-                )
-            case "proposal.approve":
-                med_name = details.get("medication_name", target)
-                return f"{actor} approved the medication change for '{med_name}' on {time_str}."
-            case "proposal.reject":
-                med_name = details.get("medication_name", target)
-                reason = details.get("rejection_reason", "")
-                reason_part = f" Reason: '{reason}'." if reason else ""
-                return (
-                    f"{actor} rejected the medication change for '{med_name}' "
-                    f"on {time_str}.{reason_part}"
-                )
-            case "proposal.emergency" | "emergency_override.medication":
-                med_name = details.get("medication_name", target)
-                act = details.get("action", "modify")
-                reason = details.get("reason", "")
-                return (
-                    f"EMERGENCY OVERRIDE: {actor} immediately applied a change to "
-                    f"{act} '{med_name}' on {time_str}. Stated emergency reason: '{reason}'."
-                )
             case "dose.log":
                 status = details.get("status", "taken")
                 dose_status = details.get("dose_status", "on time")

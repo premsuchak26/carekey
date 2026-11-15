@@ -1,11 +1,9 @@
 """Routes for viewing and cryptographically verifying the tamper-evident health data audit log."""
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.routes.dependencies import (
     AuthenticatedContext,
@@ -14,9 +12,7 @@ from app.routes.dependencies import (
     verify_csrf,
 )
 from app.services.audit import AuditService
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from app.templates_config import templates
 
 router = APIRouter(prefix="/history", tags=["Audit Log"])
 
