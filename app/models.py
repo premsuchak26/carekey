@@ -1,11 +1,23 @@
 """Core domain models for CareKey platform."""
 
 import datetime as dt
+import re
 from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+
+
+def validate_email_address(value: str) -> str:
+    """Validate that email address has a valid user@domain format."""
+    clean = value.strip().lower()
+    if not clean or not EMAIL_REGEX.match(clean):
+        raise ValueError(f"Invalid email address: '{value}'")
+    return clean
 
 
 class MemberRole(StrEnum):
@@ -35,9 +47,28 @@ class Elder(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
+    email: str = Field(default="elder@carekey.local")
+    timezone: str = Field(default="Asia/Kolkata")
     phone: str | None = None
     notes: str | None = None
     created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now())
+
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_address(v)
+
+    @field_validator("timezone")
+    @classmethod
+    def check_timezone(cls, v: str) -> str:
+        clean = v.strip()
+        if not clean:
+            return "Asia/Kolkata"
+        try:
+            ZoneInfo(clean)
+        except Exception as exc:
+            raise ValueError(f"Invalid timezone: '{v}'") from exc
+        return clean
 
 
 class CareCircle(BaseModel):
@@ -56,6 +87,7 @@ class Member(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     circle_id: str
     name: str
+    email: str = Field(default="member@carekey.local")
     role: MemberRole
     key_hash: str
     salt: str
@@ -64,6 +96,11 @@ class Member(BaseModel):
     revoked_at: dt.datetime | None = None
     failed_attempts: int = 0
     locked_until: dt.datetime | None = None
+
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_address(v)
 
 
 class DoseSchedule(BaseModel):
@@ -189,3 +226,25 @@ class AuditEntry(BaseModel):
     prev_hash: str
     hash: str
     circle_id: str = ""
+
+
+class ReminderSent(BaseModel):
+    """Tracks sent reminder notifications for idempotency."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    circle_id: str
+    target_type: Literal["dose", "appointment"]
+    target_id: str
+    scheduled_time: str
+    stage: str
+    recipient_email: str
+    sent_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now())
+
+
+class UsedActionToken(BaseModel):
+    """Tracks consumed single-use one-tap email action tokens."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    token_id: str
+    action: str
+    used_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now())

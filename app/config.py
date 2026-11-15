@@ -43,6 +43,48 @@ class Settings(BaseSettings):
         description="Google Cloud Project ID for Firestore if using firestore backend.",
     )
 
+    tick_secret: str = Field(
+        default="carekey-internal-tick-secret",
+        validation_alias=AliasChoices("TICK_SECRET", "tick_secret"),
+        description="Secret key required in X-Internal-Secret header for POST /internal/tick.",
+    )
+
+    smtp_host: str = Field(
+        default="localhost",
+        validation_alias=AliasChoices("SMTP_HOST", "smtp_host"),
+        description="SMTP host for email reminders.",
+    )
+    smtp_port: int = Field(
+        default=587,
+        validation_alias=AliasChoices("SMTP_PORT", "smtp_port"),
+        description="SMTP port.",
+    )
+    smtp_user: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_USER", "smtp_user"),
+        description="SMTP username.",
+    )
+    smtp_password: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_PASSWORD", "smtp_password"),
+        description="SMTP password.",
+    )
+    smtp_from_email: str = Field(
+        default="reminders@carekey.local",
+        validation_alias=AliasChoices("SMTP_FROM_EMAIL", "smtp_from_email"),
+        description="From address for outbound reminder emails.",
+    )
+    smtp_use_tls: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("SMTP_USE_TLS", "smtp_use_tls"),
+        description="Whether to use STARTTLS for SMTP.",
+    )
+    app_base_url: str = Field(
+        default="http://localhost:8000",
+        validation_alias=AliasChoices("APP_BASE_URL", "app_base_url"),
+        description="Application base URL for one-tap action links in emails.",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

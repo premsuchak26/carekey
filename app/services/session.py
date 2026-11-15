@@ -54,7 +54,8 @@ class SessionManager:
     def verify_session_token(self, token: str) -> dict[str, Any] | None:
         """Verify signature and expiration of session token."""
         try:
-            parts = token.split(".")
+            clean_token = token.strip().strip('"')
+            parts = clean_token.split(".")
             if len(parts) != 2:
                 return None
             encoded_payload, sig = parts[0], parts[1]

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Action Complete - CareKey{% endblock %}
+
+{% block content %}
+<section class="action-success-section" aria-labelledby="success-heading" style="max-width: 650px; margin: 2rem auto; padding: 2.5rem; background: #ffffff; border: 3px solid #059669; border-radius: 12px; text-align: center;">
+    <div style="font-size: 4rem; color: #059669; margin-bottom: 1rem;" aria-hidden="true">✓</div>
+
+    <h1 id="success-heading" style="font-size: 2.2rem; color: #065f46; margin-bottom: 1.25rem;">
+        Action Completed
+    </h1>
+
+    <p style="font-size: 1.35rem; color: #1f2937; margin-bottom: 2rem; line-height: 1.6;">
+        {{ message }}
+    </p>
+
+    <div style="display: flex; justify-content: center; gap: 1rem;">
+        <a href="/today" class="btn btn-primary" style="display: inline-block; background: #059669; color: #ffffff; padding: 1rem 2rem; font-size: 1.25rem; font-weight: bold; text-decoration: none; border-radius: 8px;">
+            Go to Today's Doses
+        </a>
+        <a href="/" class="btn btn-secondary" style="display: inline-block; background: #e5e7eb; color: #1f2937; padding: 1rem 2rem; font-size: 1.25rem; text-decoration: none; border-radius: 8px;">
+            Home
+        </a>
+    </div>
+</section>
+{% endblock %}

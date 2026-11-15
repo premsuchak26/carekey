@@ -17,12 +17,25 @@
 
         <div style="margin-top: 1.5rem;">
             <p style="font-weight: 800; font-size: 1.3rem;">Circle Code (Share with your family & caretakers):</p>
-            <div class="secret-key-display">{{ circle.circle_code }}</div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <div id="circle-code-display" class="secret-key-display">{{ circle.circle_code }}</div>
+                <button type="button" class="btn btn-secondary" onclick="window.CareKey.copyText('{{ circle.circle_code }}', this)" aria-label="Copy circle code" style="font-size: 1.1rem; padding: 0.5rem 1rem;">
+                    Copy
+                </button>
+            </div>
         </div>
 
         <div style="margin-top: 1.5rem;">
             <p style="font-weight: 800; font-size: 1.3rem;">Elder Owner Passcode (KEEP PRIVATE):</p>
-            <div class="secret-key-display" style="border-color: #dc2626; color: #991b1b;">{{ owner_passcode }}</div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <div id="owner-passcode-display" class="secret-key-display" data-passcode="{{ owner_passcode }}" data-masked="false" style="border-color: #dc2626; color: #991b1b;">{{ owner_passcode }}</div>
+                <button type="button" class="btn btn-secondary" onclick="window.CareKey.toggleElementMask('owner-passcode-display', this)" aria-label="Hide passcode" style="font-size: 1.1rem; padding: 0.5rem 1rem;">
+                    Hide
+                </button>
+                <button type="button" class="btn btn-primary" onclick="window.CareKey.copyText('{{ owner_passcode }}', this)" aria-label="Copy passcode" style="font-size: 1.1rem; padding: 0.5rem 1rem;">
+                    Copy
+                </button>
+            </div>
         </div>
     </div>
 

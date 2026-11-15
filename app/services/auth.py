@@ -2,8 +2,8 @@
 
 import hashlib
 import hmac
+import re
 import secrets
-import string
 import time
 from datetime import datetime, timedelta
 
@@ -24,7 +24,8 @@ class AuthError(Exception):
 class AuthService:
     """Manages circle creation, scrypt key issuance, verification, and lockouts."""
 
-    CHARSET = string.ascii_uppercase + string.digits
+    # Unambiguous alphabet without 0, O, 1, I, L (8 digits + 23 uppercase letters = 31 chars)
+    CHARSET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_DURATION_MINUTES = 15
     IP_RATE_LIMIT_WINDOW = 60  # seconds
@@ -40,6 +41,11 @@ class AuthService:
         self.settings = settings
         self.audit = audit_service or AuditService(repositories=repositories)
         self._ip_failed_attempts: dict[str, list[float]] = {}
+
+    @classmethod
+    def normalize_input(cls, text: str) -> str:
+        """Trim, uppercase, and ignore hyphens and spaces."""
+        return re.sub(r"[\s\-]", "", text).strip().upper()
 
     @classmethod
     def generate_passcode(cls, length: int = 12) -> str:
@@ -59,10 +65,11 @@ class AuthService:
         Returns:
             Tuple of (salt_hex, key_hash_hex)
         """
+        clean_passcode = cls.normalize_input(passcode)
         if salt is None:
             salt = secrets.token_hex(16)
         salt_bytes = salt.encode("utf-8")
-        passcode_bytes = passcode.encode("utf-8")
+        passcode_bytes = clean_passcode.encode("utf-8")
 
         # OpenSSL scrypt parameters (N=16384, r=8, p=1)
         derived = hashlib.scrypt(passcode_bytes, salt=salt_bytes, n=16384, r=8, p=1)
@@ -96,12 +103,16 @@ class AuthService:
         self._ip_failed_attempts[client_ip].append(now)
 
     async def create_circle(
-        self, elder_name: str, circle_name: str | None = None
+        self,
+        elder_name: str,
+        elder_email: str = "elder@carekey.local",
+        circle_name: str | None = None,
+        timezone: str = "Asia/Kolkata",
     ) -> tuple[CareCircle, Elder, str]:
         """Create a new Elder profile and CareCircle, returning the owner passcode once."""
         circle_name = circle_name or f"{elder_name}'s Care Circle"
 
-        elder = Elder(name=elder_name)
+        elder = Elder(name=elder_name, email=elder_email, timezone=timezone)
         await self.repos.elders.save(elder.id, elder)
 
         circle_code = self.generate_circle_code()
@@ -119,6 +130,7 @@ class AuthService:
         owner_member = Member(
             circle_id=circle.id,
             name=f"{elder_name} (Owner)",
+            email=elder_email,
             role=MemberRole.ELDER,
             key_hash=key_hash,
             salt=salt,
@@ -132,7 +144,8 @@ class AuthService:
         self,
         circle_id: str,
         name: str,
-        role: MemberRole,
+        email: str = "member@carekey.local",
+        role: MemberRole = MemberRole.HELPER,
         validity_days: int = 30,
         actor_name: str = "Elder",
     ) -> tuple[Member, str]:
@@ -144,6 +157,7 @@ class AuthService:
         member = Member(
             circle_id=circle_id,
             name=name,
+            email=email,
             role=role,
             key_hash=key_hash,
             salt=salt,
@@ -160,7 +174,12 @@ class AuthService:
             actor=actor_name,
             action="key.issue",
             target=name,
-            details={"member_name": name, "role": role.value, "validity_days": validity_days},
+            details={
+                "member_name": name,
+                "email": member.email,
+                "role": role.value,
+                "validity_days": validity_days,
+            },
         )
 
         return member, raw_passcode
@@ -197,12 +216,12 @@ class AuthService:
         """
         self.check_ip_rate_limit(client_ip)
 
-        clean_code = circle_code.strip().upper()
-        clean_passcode = passcode.strip()
+        clean_code = self.normalize_input(circle_code)
+        clean_passcode = self.normalize_input(passcode)
 
-        # Find circle by circle_code
+        # Find circle by normalized circle_code
         matching_circles = await self.repos.circles.find(
-            lambda c: c.circle_code.upper() == clean_code
+            lambda c: self.normalize_input(c.circle_code) == clean_code
         )
         if not matching_circles:
             self.record_ip_failure(client_ip)

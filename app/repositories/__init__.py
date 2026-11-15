@@ -13,6 +13,8 @@ from app.models import (
     Elder,
     Medication,
     Member,
+    ReminderSent,
+    UsedActionToken,
 )
 from app.repositories.base import HealthCheckableRepository, RepositoryProtocol
 from app.repositories.firestore import FirestoreRepository
@@ -48,6 +50,12 @@ class RepositoryContainer:
             self.audit_log: RepositoryProtocol[AuditEntry] = FirestoreRepository(
                 "audit_entries", settings
             )
+            self.reminders: RepositoryProtocol[ReminderSent] = FirestoreRepository(
+                "reminders", settings
+            )
+            self.used_tokens: RepositoryProtocol[UsedActionToken] = FirestoreRepository(
+                "used_tokens", settings
+            )
         else:
             self.elders = InMemoryRepository[Elder]()
             self.circles = InMemoryRepository[CareCircle]()
@@ -58,6 +66,8 @@ class RepositoryContainer:
             self.appointments = InMemoryRepository[Appointment]()
             self.proposals = InMemoryRepository[ChangeProposal]()
             self.audit_log = InMemoryRepository[AuditEntry]()
+            self.reminders = InMemoryRepository[ReminderSent]()
+            self.used_tokens = InMemoryRepository[UsedActionToken]()
 
     def clear(self) -> None:
         """Clear all in-memory repositories (used in testing)."""
@@ -71,6 +81,8 @@ class RepositoryContainer:
             self.appointments,
             self.proposals,
             self.audit_log,
+            self.reminders,
+            self.used_tokens,
         ):
             if isinstance(repo, InMemoryRepository):
                 repo.clear()

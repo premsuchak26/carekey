@@ -38,21 +38,43 @@ async def create_circle_action(
     request: Request,
     elder_name: Annotated[str, Form()],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    elder_email: Annotated[str, Form()] = "elder@carekey.local",
     circle_name: Annotated[str | None, Form()] = None,
+    timezone: Annotated[str, Form()] = "Asia/Kolkata",
 ) -> HTMLResponse:
-    """Create a new circle and display the owner passcode once."""
+    """Create a new circle with required email and timezone, displaying the owner passcode once."""
     if not elder_name.strip():
         return templates.TemplateResponse(
             request=request,
             name="create_circle.html",
-            context={"error": "Elder name is required."},
+            context={
+                "error": "Elder name is required.",
+                "elder_name": elder_name,
+                "elder_email": elder_email,
+                "timezone": timezone,
+            },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    circle, elder, owner_passcode = await auth_service.create_circle(
-        elder_name=elder_name.strip(),
-        circle_name=circle_name.strip() if circle_name else None,
-    )
+    try:
+        circle, elder, owner_passcode = await auth_service.create_circle(
+            elder_name=elder_name.strip(),
+            elder_email=elder_email.strip(),
+            circle_name=circle_name.strip() if circle_name else None,
+            timezone=timezone.strip(),
+        )
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="create_circle.html",
+            context={
+                "error": str(exc),
+                "elder_name": elder_name,
+                "elder_email": elder_email,
+                "timezone": timezone,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     return templates.TemplateResponse(
         request=request,
@@ -158,20 +180,36 @@ async def issue_key_action(
     _csrf: Annotated[None, Depends(verify_csrf)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     repos: Annotated[RepositoryContainer, Depends(get_repos)],
+    email: Annotated[str, Form()] = "member@carekey.local",
     validity_days: Annotated[int, Form()] = 30,
 ) -> HTMLResponse:
-    """Issue a new random 12-character member key."""
+    """Issue a new random 12-character member key with required validated email."""
     try:
         member_role = MemberRole(role)
     except ValueError:
         member_role = MemberRole.HELPER
 
-    new_member, new_passcode = await auth_service.issue_member_key(
-        circle_id=ctx.circle.id,
-        name=name.strip(),
-        role=member_role,
-        validity_days=validity_days,
-    )
+    try:
+        new_member, new_passcode = await auth_service.issue_member_key(
+            circle_id=ctx.circle.id,
+            name=name.strip(),
+            email=email.strip(),
+            role=member_role,
+            validity_days=validity_days,
+        )
+    except ValueError as exc:
+        members = await repos.members.find(lambda m: m.circle_id == ctx.circle.id)
+        return templates.TemplateResponse(
+            request=request,
+            name="keys.html",
+            context={
+                "ctx": ctx,
+                "members": members,
+                "now": datetime.now(),
+                "error": str(exc),
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     members = await repos.members.find(lambda m: m.circle_id == ctx.circle.id)
 

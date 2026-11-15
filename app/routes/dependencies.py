@@ -8,11 +8,14 @@ from fastapi import Depends, HTTPException, Request, status
 from app.config import Settings, get_settings
 from app.models import CareCircle, Member, MemberRole
 from app.repositories import RepositoryContainer, get_repository_container
+from app.services.action_tokens import ActionTokenManager
 from app.services.appointment import AppointmentService
 from app.services.audit import AuditService
 from app.services.auth import AuthService
+from app.services.email import EmailSenderProtocol, SMTPEmailSender
 from app.services.medication import MedicationService
 from app.services.proposals import ProposalService
+from app.services.reminders import ReminderService
 from app.services.session import SessionManager
 
 
@@ -160,3 +163,37 @@ async def verify_csrf(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or missing CSRF token.",
             )
+
+
+def get_email_sender(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> EmailSenderProtocol:
+    """Dependency provider for EmailSenderProtocol (defaults to SMTP)."""
+    return SMTPEmailSender(settings=settings)
+
+
+def get_action_token_manager(
+    settings: Annotated[Settings, Depends(get_settings)],
+    repos: Annotated[RepositoryContainer, Depends(get_repos)],
+) -> ActionTokenManager:
+    """Dependency provider for ActionTokenManager."""
+    return ActionTokenManager(settings=settings, repos=repos)
+
+
+def get_reminder_service(
+    repos: Annotated[RepositoryContainer, Depends(get_repos)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    email_sender: Annotated[EmailSenderProtocol, Depends(get_email_sender)],
+    token_manager: Annotated[ActionTokenManager, Depends(get_action_token_manager)],
+    medication_service: Annotated[MedicationService, Depends(get_medication_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+) -> ReminderService:
+    """Dependency provider for ReminderService."""
+    return ReminderService(
+        repos=repos,
+        settings=settings,
+        email_sender=email_sender,
+        token_manager=token_manager,
+        medication_service=medication_service,
+        audit_service=audit_service,
+    )

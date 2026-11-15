@@ -13,7 +13,32 @@
         <form action="/circle/create" method="post">
             <div class="form-group">
                 <label for="elder_name">Elder's Full Name (or What You Like to Be Called):</label>
-                <input type="text" id="elder_name" name="elder_name" required placeholder="e.g. Margaret Smith" autocomplete="name">
+                <input type="text" id="elder_name" name="elder_name" required value="{{ elder_name or '' }}" placeholder="e.g. Margaret Smith" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+                <label for="elder_email">Elder's Email Address (Required for Reminders):</label>
+                <input type="email" id="elder_email" name="elder_email" required value="{{ elder_email or '' }}" placeholder="e.g. margaret@example.com" autocomplete="email" aria-describedby="elder_email_hint">
+                <p id="elder_email_hint" class="form-hint">Used for timely medication reminders and one-tap action links.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="timezone">Elder's Time Zone:</label>
+                <select id="timezone" name="timezone" required aria-describedby="timezone_hint" style="font-size: 1.25rem; padding: 0.5rem; border-radius: 6px; width: 100%;">
+                    <option value="Asia/Kolkata" {% if not timezone or timezone == 'Asia/Kolkata' %}selected{% endif %}>Asia/Kolkata (IST - India Standard Time)</option>
+                    <option value="UTC" {% if timezone == 'UTC' %}selected{% endif %}>UTC (Coordinated Universal Time)</option>
+                    <option value="America/New_York" {% if timezone == 'America/New_York' %}selected{% endif %}>America/New_York (Eastern Time)</option>
+                    <option value="America/Chicago" {% if timezone == 'America/Chicago' %}selected{% endif %}>America/Chicago (Central Time)</option>
+                    <option value="America/Denver" {% if timezone == 'America/Denver' %}selected{% endif %}>America/Denver (Mountain Time)</option>
+                    <option value="America/Los_Angeles" {% if timezone == 'America/Los_Angeles' %}selected{% endif %}>America/Los_Angeles (Pacific Time)</option>
+                    <option value="Europe/London" {% if timezone == 'Europe/London' %}selected{% endif %}>Europe/London (GMT/BST)</option>
+                    <option value="Europe/Paris" {% if timezone == 'Europe/Paris' %}selected{% endif %}>Europe/Paris (CET)</option>
+                    <option value="Asia/Dubai" {% if timezone == 'Asia/Dubai' %}selected{% endif %}>Asia/Dubai (GST)</option>
+                    <option value="Asia/Singapore" {% if timezone == 'Asia/Singapore' %}selected{% endif %}>Asia/Singapore (SGT)</option>
+                    <option value="Asia/Tokyo" {% if timezone == 'Asia/Tokyo' %}selected{% endif %}>Asia/Tokyo (JST)</option>
+                    <option value="Australia/Sydney" {% if timezone == 'Australia/Sydney' %}selected{% endif %}>Australia/Sydney (AEST)</option>
+                </select>
+                <p id="timezone_hint" class="form-hint">Doses and appointment reminders will be scheduled in this timezone.</p>
             </div>
 
             <div class="form-group">

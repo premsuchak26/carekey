@@ -15,8 +15,16 @@
             <p style="font-size: 1.25rem; font-weight: 700; color: #78350f;">
                 This 12-character passcode is shown <strong>ONLY ONCE</strong>. Share it privately with {{ new_member.name }} along with Circle Code <strong>{{ ctx.circle.circle_code }}</strong>.
             </p>
-            <div class="secret-key-display">{{ new_passcode }}</div>
-            <p style="font-size: 1.15rem; color: #78350f;">Role: <strong>{{ new_member.role.value }}</strong> &bull; Expires: {{ new_member.expires_at.strftime('%Y-%m-%d') if new_member.expires_at else 'Never' }}</p>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; flex-wrap: wrap;">
+                <div id="new-key-display" class="secret-key-display" data-passcode="{{ new_passcode }}" data-masked="false">{{ new_passcode }}</div>
+                <button type="button" class="btn btn-secondary" onclick="window.CareKey.toggleElementMask('new-key-display', this)" aria-label="Hide passcode" style="font-size: 1.1rem; padding: 0.5rem 1rem;">
+                    Hide
+                </button>
+                <button type="button" class="btn btn-primary" onclick="window.CareKey.copyText('{{ new_passcode }}', this)" aria-label="Copy passcode" style="font-size: 1.1rem; padding: 0.5rem 1rem;">
+                    Copy
+                </button>
+            </div>
+            <p style="font-size: 1.15rem; color: #78350f;">Email: <strong>{{ new_member.email }}</strong> &bull; Role: <strong>{{ new_member.role.value }}</strong> &bull; Expires: {{ new_member.expires_at.strftime('%Y-%m-%d') if new_member.expires_at else 'Never' }}</p>
         </div>
     {% endif %}
 
@@ -29,6 +37,12 @@
             <div class="form-group">
                 <label for="member_name">Member's Name:</label>
                 <input type="text" id="member_name" name="name" required placeholder="e.g. John (Caretaker) or Sarah (Daughter)">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Member's Email Address (Required for Alerts):</label>
+                <input type="email" id="email" name="email" required placeholder="e.g. member@example.com" autocomplete="email" aria-describedby="email_hint">
+                <p id="email_hint" class="form-hint">Used to send missed medication alerts and appointment reminders.</p>
             </div>
 
             <div class="form-group">

@@ -177,6 +177,7 @@ class MedicationService:
         logged_by: str = "",
         notes: str = "",
         timestamp: datetime | None = None,
+        dose_status: Literal["on_time", "late", "missed", "skipped"] | None = None,
     ) -> DoseEvent:
         """Log a dose administration event with computed punctuality status."""
         med = await self.repos.medications.get(medication_id)
@@ -184,7 +185,7 @@ class MedicationService:
             raise ValueError("Medication does not exist in this care circle.")
 
         log_time = timestamp or datetime.now()
-        dose_status = self.calculate_dose_status(
+        resolved_status = dose_status or self.calculate_dose_status(
             scheduled_time=scheduled_time,
             timestamp=log_time,
             status=status,
@@ -195,7 +196,7 @@ class MedicationService:
             medication_id=medication_id,
             scheduled_time=scheduled_time,
             status=status,
-            dose_status=dose_status,
+            dose_status=resolved_status,
             timestamp=log_time,
             logged_by=logged_by,
             notes=notes,
