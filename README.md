@@ -9,17 +9,14 @@
 
 | Component | Link / Value |
 |---|---|
-| **Live App URL** | `https://carekey-658253906236.us-central1.run.app` *(or your deployed Cloud Run URL)* |
-| **Demo Circle Code** | `CARE-YHFH` |
-| **Elder Owner Passcode** | `8SN2CGJ3VUWW` *(access to `/today` and Two-Key Approvals)* |
-| **Caretaker Manager Passcode** | `9QCBCRCE39Z8` *(access to Dashboard, Proposals, Key Management)* |
-| **Helper Passcode** | `7NY6TGA6S8EX` *(access to Dose Logging & Notes)* |
+| **Live App URL** | https://carekey.onrender.com/login |
+| **Circle Code** | CARE-M7M6 |
+| **Elder Owner Passcode** | `8RR6W6SFBQB6` |
+| **Caretaker (Helper) Passcode** | `VZXANAVK3VT7` |
 
-> **Tip:** You can generate a fresh demo circle with custom sample medications at any time by running:
-> ```bash
-> python -m scripts.seed_demo
-> ```
-
+> **Note:** The demo runs on a free instance with in-memory data. The first visit may take up to a minute to wake up. If a passcode says invalid after a restart, create a fresh circle at https://carekey.onrender.com/circle/create (about 30 seconds), then issue a caretaker key under Manage Keys.
+>
+> **Local demo data:** run `python -m scripts.seed_demo` to create a sample circle with medications.
 ---
 
 ## 📋 Requirements to Features & Files Mapping
