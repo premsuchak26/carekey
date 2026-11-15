@@ -10,9 +10,9 @@
 | Component | Link / Value |
 |---|---|
 | **Live App URL** | https://carekey.onrender.com/login |
-| **Circle Code** | CARE-YF9Z |
-| **Elder Owner Passcode** | `CYSNBHCR6RR7` |
-| **Caretaker (Helper) Passcode** | `BTWU3EAG2UBF` |
+| **Circle Code** | CARE-JU8C |
+| **Elder Owner Passcode** | `N6B3HAC5V55G` |
+| **Caretaker (Helper) Passcode** | `42MQ3RDJN7XJ` |
 
 > **Note:** The demo runs on a free instance with in-memory data. The first visit may take up to a minute to wake up. If a passcode says invalid after a restart, create a fresh circle at https://carekey.onrender.com/circle/create (about 30 seconds), then issue a caretaker key under Manage Keys.
 >
